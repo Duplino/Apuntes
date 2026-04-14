@@ -377,7 +377,7 @@ function buildRow(name, isIO, errCols) {
     }
 
     const showEnd     = cell.active && !next && cell.endType !== 'none';
-    const showArrival = cell.active && !isIO && cell.arrival;
+    const showArrival = !isIO && cell.arrival;
 
     let barColor = '';
     if (isIO && cell.active && cell.ioProc) {
@@ -549,7 +549,6 @@ function clickCell(p, c) {
 function rightClick(e, p, c) {
   e.preventDefault();
   const cell = getCell(p, c);
-  if (!cell.active) { cell.active = true; render(); }
   ctxKey  = cKey(p, c);
   ctxIsIO = (p === 'IO');
 
