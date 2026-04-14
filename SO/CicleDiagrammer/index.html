@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CPU Cycle Diagrammer</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <style>
+    body { background: #f0f2f5; }
+
+    /* ── Shared table wrapper ───────────────────────────────────── */
+    .tbl-wrap { overflow-x: auto; }
+
+    /* ── Gantt table ────────────────────────────────────────────── */
+    table.gantt { border-collapse: collapse; table-layout: fixed; }
+    table.gantt th,
+    table.gantt td { border: 1px solid #ced4da; }
+
+    table.gantt .col-name {
+      width: 80px; min-width: 80px;
+      font-weight: 600; text-align: center; vertical-align: middle;
+      background: #f8f9fa;
+      position: sticky; left: 0; z-index: 2;
+      padding: 4px 6px;
+    }
+    table.gantt th.col-cycle {
+      width: 48px; min-width: 48px;
+      text-align: center; font-size: .75rem; color: #6c757d; padding: 4px;
+    }
+    table.gantt td.cell {
+      width: 48px; min-width: 48px; height: 46px;
+      padding: 0; cursor: pointer; position: relative;
+      user-select: none;
+    }
+    table.gantt td.cell:hover .burst-bg { filter: brightness(.92); }
+
+    /* burst bar */
+    .burst-bg {
+      position: absolute; inset: 4px 0;
+      background: #0d6efd;
+      display: flex; align-items: center; justify-content: flex-end;
+      padding-right: 4px; color: #fff; font-size: 13px;
+      transition: filter .1s;
+    }
+    .io-row .burst-bg { background: #198754; }
+    .burst-bg.seg-solo   { left: 5px; right: 5px; border-radius: 5px; }
+    .burst-bg.seg-start  { left: 5px; border-radius: 5px 0 0 5px; }
+    .burst-bg.seg-middle { }
+    .burst-bg.seg-end    { right: 5px; border-radius: 0 5px 5px 0; }
+
+    /* ── Context menu ───────────────────────────────────────────── */
+    #ctxMenu {
+      display: none; position: fixed; z-index: 9999;
+      background: #fff; border: 1px solid rgba(0,0,0,.15);
+      border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.15);
+      min-width: 210px; padding: 4px 0;
+    }
+    .ctx-hdr {
+      padding: 5px 14px 3px;
+      font-size: .7rem; font-weight: 700; color: #6c757d;
+      text-transform: uppercase; letter-spacing: .06em;
+    }
+    .ctx-item {
+      padding: 7px 14px; cursor: pointer;
+      display: flex; align-items: center; gap: 10px; font-size: .875rem;
+    }
+    .ctx-item:hover { background: #f0f2f5; }
+    .ctx-item.ctx-active { background: #cfe2ff; font-weight: 600; }
+    .ctx-div { border-top: 1px solid #dee2e6; margin: 4px 0; }
+
+    /* ── Queue table ────────────────────────────────────────────── */
+    table.qtbl { border-collapse: collapse; table-layout: fixed; }
+    table.qtbl th, table.qtbl td { border: 1px solid #ced4da; }
+
+    table.qtbl .qcol-name {
+      width: 100px; min-width: 100px;
+      font-weight: 600; text-align: center; vertical-align: middle;
+      background: #f8f9fa; padding: 6px;
+      position: sticky; left: 0; z-index: 2;
+    }
+    table.qtbl .qcol-act {
+      width: 52px; min-width: 52px;
+      text-align: center; vertical-align: middle;
+      background: #f8f9fa;
+      position: sticky; right: 0; z-index: 2;
+    }
+    table.qtbl th.qhd-cycle {
+      width: 48px; min-width: 48px;
+      text-align: center; font-size: .75rem; color: #6c757d; padding: 4px;
+    }
+    table.qtbl td.q-slot {
+      width: 48px; min-width: 48px; vertical-align: top; padding: 3px 2px;
+    }
+    table.qtbl td.q-slot.drag-over { background: #cfe2ff; border-color: #0d6efd; }
+
+    .proc-chip {
+      display: block; text-align: center;
+      padding: 2px 4px; margin-bottom: 2px;
+      border-radius: 4px; font-size: .72rem; font-weight: 700;
+      cursor: grab; user-select: none;
+      background: #0d6efd; color: #fff;
+    }
+    .proc-chip.io-chip { background: #198754; }
+    .proc-chip:active { cursor: grabbing; opacity: .6; }
+    .proc-chip.dragging { opacity: .35; }
+    .proc-chip-drop-line {
+      height: 3px; background: #0d6efd;
+      border-radius: 2px; margin: 1px 0;
+      pointer-events: none;
+    }
+
+    select.slot-add {
+      display: block; width: 100%; padding: 1px 2px;
+      font-size: .7rem; border: 1px solid #ced4da; border-radius: 3px;
+      background: #fff; cursor: pointer; text-align: center;
+      margin-top: 1px;
+    }
+    select.slot-add:hover { background: #e9ecef; }
+  </style>
+</head>
+<body class="py-3 px-3 px-md-4">
+
+<!-- ── Header ──────────────────────────────────────────────────────── -->
+<div class="d-flex align-items-center gap-3 mb-3">
+  <h3 class="mb-0 fw-bold"><i class="bi bi-cpu-fill text-primary"></i> CPU Cycle Diagrammer</h3>
+</div>
+
+<!-- ── Controls ────────────────────────────────────────────────────── -->
+<div class="card mb-3 shadow-sm">
+  <div class="card-body py-2 d-flex flex-wrap gap-2 align-items-center">
+    <button class="btn btn-primary btn-sm" onclick="addProcess()">
+      <i class="bi bi-plus-lg"></i> Add Process
+    </button>
+    <button class="btn btn-outline-danger btn-sm" id="btnRmProc" onclick="removeLastProcess()" disabled>
+      <i class="bi bi-dash-lg"></i> Remove Last Process
+    </button>
+    <div class="vr mx-1"></div>
+    <button class="btn btn-outline-secondary btn-sm" onclick="addCycle()">
+      <i class="bi bi-arrow-right"></i> Add Cycle
+    </button>
+    <button class="btn btn-outline-secondary btn-sm" id="btnRmCycle" onclick="removeCycle()" disabled>
+      <i class="bi bi-arrow-left"></i> Remove Last Cycle
+    </button>
+    <div class="ms-auto small text-muted d-none d-md-block">
+      <i class="bi bi-info-circle"></i>
+      Left-click to toggle&nbsp;·&nbsp;Right-click active cell for end type
+    </div>
+  </div>
+</div>
+
+<!-- ── Gantt diagram ────────────────────────────────────────────────── -->
+<div class="card mb-3 shadow-sm">
+  <div class="card-header py-2 fw-semibold small">
+    <i class="bi bi-bar-chart-steps text-primary"></i> Instruction Cycle Diagram
+  </div>
+  <div class="card-body p-2">
+    <div class="tbl-wrap">
+      <table class="gantt" id="ganttTable"></table>
+    </div>
+  </div>
+  <div class="card-footer py-2 d-flex flex-wrap gap-3 align-items-center" style="font-size:.8rem">
+    <span class="fw-semibold text-secondary">End types:</span>
+    <span><i class="bi bi-circle-fill text-primary"></i> Circle — Normal end</span>
+    <span><i class="bi bi-x-lg text-danger"></i> Cross — Preempted</span>
+    <span><i class="bi bi-dash-lg" style="color:#ffc107"></i> Line — I/O wait</span>
+    <span><i class="bi bi-arrow-down text-info"></i> Arrow — Blocked</span>
+  </div>
+</div>
+
+<hr class="my-4" />
+
+<!-- ── Queue section ────────────────────────────────────────────────── -->
+<div class="d-flex align-items-center gap-3 mb-3">
+  <h5 class="mb-0 fw-bold"><i class="bi bi-list-ul text-success"></i> Process Queues</h5>
+  <div class="input-group input-group-sm" style="max-width:280px">
+    <input id="qNameInput" type="text" class="form-control" placeholder="Queue name…" />
+    <button class="btn btn-success" onclick="addQueue()">
+      <i class="bi bi-plus-lg"></i> Add
+    </button>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body p-2">
+    <div class="tbl-wrap">
+      <table class="qtbl" id="qTable"></table>
+    </div>
+    <div id="qEmpty" class="text-center text-muted py-3 small">
+      No queues yet. Add one above.
+    </div>
+  </div>
+</div>
+
+<!-- ── Context menu ─────────────────────────────────────────────────── -->
+<div id="ctxMenu">
+  <div class="ctx-hdr">Set End Type</div>
+  <div class="ctx-item" id="ctx-none"   onclick="setEndType('none')">
+    <i class="bi bi-square" style="width:16px"></i> None
+  </div>
+  <div class="ctx-item" id="ctx-circle" onclick="setEndType('circle')">
+    <i class="bi bi-circle-fill text-primary" style="width:16px"></i> Circle — Normal end
+  </div>
+  <div class="ctx-item" id="ctx-cross"  onclick="setEndType('cross')">
+    <i class="bi bi-x-lg text-danger" style="width:16px"></i> Cross — Preempted
+  </div>
+  <div class="ctx-item" id="ctx-line"   onclick="setEndType('line')">
+    <i class="bi bi-dash-lg" style="width:16px;color:#ffc107"></i> Line — I/O wait
+  </div>
+  <div class="ctx-item" id="ctx-arrow"  onclick="setEndType('arrow')">
+    <i class="bi bi-arrow-down text-info" style="width:16px"></i> Arrow — Blocked
+  </div>
+  <div class="ctx-div"></div>
+  <div class="ctx-item text-danger" onclick="ctxDeactivate()">
+    <i class="bi bi-eraser" style="width:16px"></i> Deactivate cell
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  State
+// ═══════════════════════════════════════════════════════════════════
+const S = {
+  processes: ['IO', 'A'],
+  cycles: 10,
+  cells: {},    // "P:c" → { active, endType }
+  queues: [],   // [{ id, name, slots: { c: [proc,…] } }]
+};
+
+let nextChar  = 'B';
+let qCounter  = 0;
+let ctxKey    = null;   // key of right-clicked cell
+let dragSrc   = null;   // { qId, c, idx }  – for chip D&D
+let dropIdx   = -1;     // insertion index during drag-over
+
+// ═══════════════════════════════════════════════════════════════════
+//  Cell helpers
+// ═══════════════════════════════════════════════════════════════════
+const cKey = (p, c) => `${p}:${c}`;
+
+function getCell(p, c) {
+  const k = cKey(p, c);
+  if (!S.cells[k]) S.cells[k] = { active: false, endType: 'none' };
+  return S.cells[k];
+}
+
+function isActive(p, c) {
+  return c >= 0 && c < S.cycles && getCell(p, c).active;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Render — Gantt
+// ═══════════════════════════════════════════════════════════════════
+const END_ICON = {
+  circle: '<i class="bi bi-circle-fill"></i>',
+  cross:  '<i class="bi bi-x-lg"></i>',
+  line:   '<i class="bi bi-dash-lg"></i>',
+  arrow:  '<i class="bi bi-arrow-down"></i>',
+};
+
+function renderGantt() {
+  let h = '<thead><tr><th class="col-name">Process</th>';
+  for (let c = 0; c < S.cycles; c++) h += `<th class="col-cycle">${c}</th>`;
+  h += '</tr></thead><tbody>';
+
+  for (const p of S.processes) {
+    const isIO = p === 'IO';
+    h += `<tr><td class="col-name">${p}</td>`;
+    for (let c = 0; c < S.cycles; c++) {
+      const cell = getCell(p, c);
+      const prev = isActive(p, c - 1);
+      const next = isActive(p, c + 1);
+
+      let seg = '';
+      if (cell.active) {
+        if (!prev && !next) seg = 'seg-solo';
+        else if (!prev)     seg = 'seg-start';
+        else if (!next)     seg = 'seg-end';
+        else                seg = 'seg-middle';
+      }
+
+      const icon = (cell.active && cell.endType !== 'none') ? (END_ICON[cell.endType] || '') : '';
+      const ioC  = isIO ? ' io-row' : '';
+
+      h += `<td class="cell${ioC}" onclick="clickCell('${p}',${c})" oncontextmenu="rightClick(event,'${p}',${c})">`;
+      if (cell.active) h += `<div class="burst-bg ${seg}">${icon}</div>`;
+      h += '</td>';
+    }
+    h += '</tr>';
+  }
+  h += '</tbody>';
+
+  document.getElementById('ganttTable').innerHTML = h;
+  document.getElementById('btnRmProc').disabled  = S.processes.length <= 1;
+  document.getElementById('btnRmCycle').disabled = S.cycles <= 1;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Render — Queues
+// ═══════════════════════════════════════════════════════════════════
+function renderQueues() {
+  const tbl  = document.getElementById('qTable');
+  const empt = document.getElementById('qEmpty');
+
+  if (!S.queues.length) { tbl.innerHTML = ''; empt.style.display = ''; return; }
+  empt.style.display = 'none';
+
+  let h = '<thead><tr><th class="qcol-name">Queue</th>';
+  for (let c = 0; c < S.cycles; c++) h += `<th class="qhd-cycle">${c}</th>`;
+  h += '<th class="qcol-act"></th></tr></thead><tbody>';
+
+  for (const q of S.queues) {
+    h += `<tr><td class="qcol-name">${q.name}</td>`;
+    for (let c = 0; c < S.cycles; c++) {
+      const slot = q.slots[c] || [];
+      h += `<td class="q-slot" id="slot-${q.id}-${c}"
+        ondragover="qDragOver(event,'${q.id}',${c})"
+        ondrop="qDrop(event,'${q.id}',${c})"
+        ondragleave="qDragLeave(event)">`;
+
+      slot.forEach((pr, i) => {
+        const ioC = pr === 'IO' ? ' io-chip' : '';
+        h += `<span class="proc-chip${ioC}"
+          draggable="true"
+          ondragstart="qDragStart(event,'${q.id}',${c},${i})"
+          ondragend="qDragEnd(event)"
+          title="Drag to reorder · Dbl-click to remove"
+          ondblclick="removeFromSlot('${q.id}',${c},${i})">${pr}</span>`;
+      });
+
+      const opts = S.processes.map(pr => `<option value="${pr}">${pr}</option>`).join('');
+      h += `<select class="slot-add" onchange="addToSlot('${q.id}',${c},this)">
+        <option value="">＋</option>${opts}
+      </select>`;
+      h += '</td>';
+    }
+    h += `<td class="qcol-act">
+      <button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="removeQueue('${q.id}')">
+        <i class="bi bi-trash"></i>
+      </button>
+    </td></tr>`;
+  }
+  h += '</tbody>';
+  tbl.innerHTML = h;
+}
+
+function render() { renderGantt(); renderQueues(); }
+
+// ═══════════════════════════════════════════════════════════════════
+//  Process / Cycle management
+// ═══════════════════════════════════════════════════════════════════
+function addProcess() {
+  S.processes.push(nextChar);
+  nextChar = String.fromCharCode(nextChar.charCodeAt(0) + 1);
+  render();
+}
+
+function removeLastProcess() {
+  if (S.processes.length <= 1) return;
+  const removed = S.processes.pop();
+  nextChar = String.fromCharCode(nextChar.charCodeAt(0) - 1);
+  for (let c = 0; c < S.cycles; c++) delete S.cells[cKey(removed, c)];
+  render();
+}
+
+function addCycle() { S.cycles++; render(); }
+
+function removeCycle() {
+  if (S.cycles <= 1) return;
+  S.cycles--;
+  S.processes.forEach(p => delete S.cells[cKey(p, S.cycles)]);
+  S.queues.forEach(q => delete q.slots[S.cycles]);
+  render();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Cell interactions
+// ═══════════════════════════════════════════════════════════════════
+function clickCell(p, c) {
+  const cell = getCell(p, c);
+  cell.active = !cell.active;
+  if (!cell.active) cell.endType = 'none';
+  render();
+}
+
+function rightClick(e, p, c) {
+  e.preventDefault();
+  const cell = getCell(p, c);
+  if (!cell.active) { cell.active = true; render(); }
+  ctxKey = cKey(p, c);
+
+  ['none','circle','cross','line','arrow'].forEach(t =>
+    document.getElementById(`ctx-${t}`).classList.toggle('ctx-active', cell.endType === t)
+  );
+
+  const menu = document.getElementById('ctxMenu');
+  menu.style.display = 'block';
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  menu.style.left = Math.min(e.clientX, innerWidth  - mw - 8) + 'px';
+  menu.style.top  = Math.min(e.clientY, innerHeight - mh - 8) + 'px';
+}
+
+function setEndType(t) {
+  if (ctxKey && S.cells[ctxKey]) S.cells[ctxKey].endType = t;
+  hideCtx(); render();
+}
+
+function ctxDeactivate() {
+  if (ctxKey && S.cells[ctxKey]) { S.cells[ctxKey].active = false; S.cells[ctxKey].endType = 'none'; }
+  hideCtx(); render();
+}
+
+function hideCtx() { document.getElementById('ctxMenu').style.display = 'none'; ctxKey = null; }
+
+document.addEventListener('click', e => { if (!e.target.closest('#ctxMenu')) hideCtx(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hideCtx(); });
+
+// ═══════════════════════════════════════════════════════════════════
+//  Queue management
+// ═══════════════════════════════════════════════════════════════════
+function addQueue() {
+  const inp  = document.getElementById('qNameInput');
+  const name = inp.value.trim() || `Queue ${S.queues.length + 1}`;
+  S.queues.push({ id: `q${++qCounter}`, name, slots: {} });
+  inp.value = '';
+  render();
+}
+
+function removeQueue(id) { S.queues = S.queues.filter(q => q.id !== id); render(); }
+
+function addToSlot(qId, c, sel) {
+  if (!sel.value) return;
+  const q = S.queues.find(q => q.id === qId);
+  if (!q) return;
+  if (!q.slots[c]) q.slots[c] = [];
+  q.slots[c].push(sel.value);
+  sel.value = '';
+  render();
+}
+
+function removeFromSlot(qId, c, idx) {
+  const q = S.queues.find(q => q.id === qId);
+  if (!q?.slots[c]) return;
+  q.slots[c].splice(idx, 1);
+  render();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Queue drag & drop  (supports cross-slot moves + within-slot order)
+// ═══════════════════════════════════════════════════════════════════
+function qDragStart(e, qId, c, idx) {
+  dragSrc = { qId, c, idx };
+  e.dataTransfer.effectAllowed = 'move';
+  e.target.classList.add('dragging');
+}
+
+function qDragEnd(e) { e.target.classList.remove('dragging'); }
+
+function qDragOver(e, tQId, tC) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const slot = e.currentTarget;
+  slot.classList.add('drag-over');
+
+  // Calculate insertion index from mouse Y vs chip tops
+  const chips = [...slot.querySelectorAll('.proc-chip')];
+  dropIdx = chips.length;
+  for (let i = 0; i < chips.length; i++) {
+    const rect = chips[i].getBoundingClientRect();
+    if (e.clientY < rect.top + rect.height / 2) { dropIdx = i; break; }
+  }
+}
+
+function qDragLeave(e) { e.currentTarget.classList.remove('drag-over'); dropIdx = -1; }
+
+function qDrop(e, tQId, tC) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!dragSrc) return;
+
+  const srcQ = S.queues.find(q => q.id === dragSrc.qId);
+  const tgtQ = S.queues.find(q => q.id === tQId);
+  if (!srcQ || !tgtQ) { dragSrc = null; return; }
+
+  const proc = (srcQ.slots[dragSrc.c] || [])[dragSrc.idx];
+  if (proc === undefined) { dragSrc = null; return; }
+
+  // Remove from source
+  srcQ.slots[dragSrc.c].splice(dragSrc.idx, 1);
+
+  // Insert into target at calculated position
+  if (!tgtQ.slots[tC]) tgtQ.slots[tC] = [];
+  const insertAt = (dropIdx < 0 || dropIdx > tgtQ.slots[tC].length)
+    ? tgtQ.slots[tC].length
+    : dropIdx;
+
+  // Adjust if same slot and removed before insertion point
+  const adj = (srcQ === tgtQ && dragSrc.c === tC && dragSrc.idx < insertAt) ? -1 : 0;
+  tgtQ.slots[tC].splice(insertAt + adj, 0, proc);
+
+  dragSrc = null; dropIdx = -1;
+  render();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Boot
+// ═══════════════════════════════════════════════════════════════════
+render();
+</script>
+</body>
+</html>
