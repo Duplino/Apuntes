@@ -170,6 +170,28 @@ Extensión de RR:
 
 > [!WARNING]
 > Falta gráfico
+>
+
+```mermaid
+stateDiagram-v2
+    direction LR
+
+    state "Ciclo 1" as c1
+    state "Ciclo 2" as c2
+
+    %% Usamos notas para la cola, es más legible
+    note right of c1
+      Ejecuta: P1
+      Cola: [P2, P3]
+    end note
+
+    note right of c2
+      Ejecuta: P1
+      Cola: [P2, P3]
+    end note
+
+    c1 --> c2
+```
 
 ---
 
