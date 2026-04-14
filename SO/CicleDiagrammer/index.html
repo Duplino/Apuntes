@@ -9,35 +9,49 @@
   <style>
     body { background: #f0f2f5; }
 
-    /* ── Shared table wrapper ─────────────────────────────────────── */
     .tbl-wrap { overflow-x: auto; }
 
-    /* ── Main combined table ──────────────────────────────────────── */
+    /* ── Main table ──────────────────────────────────────────────── */
     table.main-tbl { border-collapse: collapse; table-layout: fixed; }
-    table.main-tbl th,
     table.main-tbl td { border: 1px solid #ced4da; }
 
-    /* Name / label column — sticky left */
-    .col-name {
+    /* Sticky name column */
+    td.col-name {
       width: 90px; min-width: 90px;
       font-weight: 600; text-align: center; vertical-align: middle;
-      background: #f8f9fa;
-      position: sticky; left: 0; z-index: 2;
+      background: #f8f9fa; position: sticky; left: 0; z-index: 3;
       padding: 4px 6px; font-size: .8rem;
-      border-right: 2px solid #adb5bd;
+      border-right: 2px solid #adb5bd !important;
     }
 
-    /* Instant ruler header — number sits at the LEFT edge (= the instant line) */
-    th.col-instant {
-      width: 48px; min-width: 48px;
-      padding: 2px 0 3px 3px;
-      text-align: left; vertical-align: bottom;
-      font-size: .72rem; font-weight: 700; color: #495057;
-      background: #fff;
-      border-bottom: 2px solid #6c757d;
+    /* ── Instant ruler row ───────────────────────────────────────── */
+    /* Numbers float ON the vertical grid lines using absolute positioning */
+    tr.ruler-row > td {
+      height: 26px; padding: 0;
+      border-top: none !important; border-right: none !important;
+      border-left: 1px solid #ced4da; border-bottom: 2px solid #6c757d;
+      position: relative; overflow: visible; background: #fff;
+    }
+    tr.ruler-row > td.col-name {
+      border: none !important; border-right: 2px solid #adb5bd !important;
+      border-bottom: 2px solid #6c757d !important;
+      background: #f8f9fa;
+    }
+    .instant-num {
+      position: absolute; bottom: 4px; left: 0;
+      transform: translateX(-50%);
+      font-size: .7rem; font-weight: 700; color: #495057;
+      white-space: nowrap; pointer-events: none; z-index: 4;
+    }
+    /* Extra number at the right edge of the last ruler cell */
+    .instant-num-last {
+      position: absolute; bottom: 4px; right: 0;
+      transform: translateX(50%);
+      font-size: .7rem; font-weight: 700; color: #495057;
+      white-space: nowrap; pointer-events: none; z-index: 4;
     }
 
-    /* Data cells */
+    /* ── Data cells ─────────────────────────────────────────────── */
     td.cell {
       width: 48px; min-width: 48px; height: 44px;
       padding: 0; cursor: pointer; position: relative;
@@ -45,53 +59,64 @@
     }
     td.cell:hover { background: rgba(0,0,0,.03); }
 
-    /* IO rows — light green tint */
+    /* IO row */
     tr.io-row > td          { background: #f0faf4; }
     tr.io-row > td.col-name { color: #198754; background: #e6f6ee; }
 
-    /* Burst bar */
+    /* ── Burst bar — thin finite line ───────────────────────────── */
     .burst-bg {
-      position: absolute; top: 8px; bottom: 8px; left: 0; right: 0;
+      position: absolute;
+      top: 50%; height: 4px; left: 0; right: 0;
+      transform: translateY(-50%);
       background: #0d6efd;
-      transition: filter .1s;
+      transition: filter .15s;
     }
     tr.io-row .burst-bg { background: #198754; }
-    td.cell:hover .burst-bg { filter: brightness(.88); }
+    td.cell:hover .burst-bg { filter: brightness(.82); }
 
-    .burst-bg.seg-solo   { left: 4px; right: 4px; border-radius: 5px; }
-    .burst-bg.seg-start  { left: 4px; border-radius: 5px 0 0 5px; }
-    .burst-bg.seg-middle { }
-    .burst-bg.seg-end    { right: 4px; border-radius: 0 5px 5px 0; }
+    /* seg classes: lines run to cell borders (= instant lines) */
+    .burst-bg.seg-solo   { left: 0; right: 0; }
+    .burst-bg.seg-start  { left: 0; right: 0; }
+    .burst-bg.seg-middle { left: 0; right: 0; }
+    .burst-bg.seg-end    { left: 0; right: 0; }
 
-    /* ── End marker — centred on the RIGHT border (the "end instant") ── */
+    /* ── End marker — centred ON the right border (end instant) ─── */
     .end-mark {
       position: absolute;
-      right: -10px; top: 50%; transform: translateY(-50%);
-      width: 20px; height: 20px;
+      right: 0; top: 50%;
+      transform: translate(50%, -50%);
       display: flex; align-items: center; justify-content: center;
-      z-index: 6; pointer-events: none; font-size: 14px;
+      z-index: 6; pointer-events: none;
     }
-    /* END type: solid vertical bar sitting on the instant line */
     .end-vbar {
-      width: 3px; height: 30px;
+      width: 3px; height: 28px;
       background: #212529; border-radius: 1px;
     }
 
-    /* ── Arrival marker — centred on the LEFT border (the "start instant") ── */
+    /* ── Arrival marker — centred ON the left border (start instant) */
     .arrival-mark {
       position: absolute;
-      left: -7px; top: 1px;
-      width: 14px;
-      text-align: center;
-      font-size: 11px; font-weight: 900; line-height: 1;
+      left: 0; top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 18px; font-weight: 900; line-height: 1;
       color: #212529; z-index: 7; pointer-events: none;
     }
 
-    /* ── Queue section rows (inside same tbody) ───────────────────── */
+    /* ── IO process label (inside IO cell) ──────────────────────── */
+    .io-proc-label {
+      position: absolute;
+      left: 0; right: 0; top: 50%;
+      transform: translateY(calc(-50% - 7px));
+      text-align: center;
+      font-size: 10px; font-weight: 900;
+      pointer-events: none; line-height: 1; white-space: nowrap;
+    }
+
+    /* ── Queue section ───────────────────────────────────────────── */
     tr.q-divider > td {
       background: #e9ecef !important;
       border-top: 3px solid #6c757d !important;
-      padding: 5px 7px;
+      padding: 4px 6px;
     }
     tr.q-divider > td.col-name { background: #dde0e4 !important; }
 
@@ -108,7 +133,6 @@
       cursor: grab; user-select: none;
       background: #0d6efd; color: #fff;
     }
-    .io-chip { background: #198754 !important; }
     .proc-chip:active { cursor: grabbing; }
     .proc-chip.dragging { opacity: .3; }
 
@@ -118,12 +142,12 @@
       background: #fff; cursor: pointer; margin-top: 1px;
     }
 
-    /* ── Context menu ─────────────────────────────────────────────── */
+    /* ── Context menu ────────────────────────────────────────────── */
     #ctxMenu {
       display: none; position: fixed; z-index: 9999;
       background: #fff; border: 1px solid rgba(0,0,0,.15);
       border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.15);
-      min-width: 225px; padding: 4px 0;
+      min-width: 230px; padding: 4px 0;
     }
     .ctx-hdr {
       padding: 5px 14px 3px;
@@ -164,20 +188,20 @@
     </button>
     <div class="ms-auto small text-muted d-none d-md-block">
       <i class="bi bi-info-circle"></i>
-      Left-click: toggle &nbsp;·&nbsp; Right-click: end type / arrival
+      Left-click: toggle &nbsp;·&nbsp; Right-click: end type / arrival / IO process
     </div>
   </div>
 </div>
 
-<!-- ── Diagram + Queues (single card, single table) ──────────────────── -->
+<!-- ── Diagram + Queues ────────────────────────────────────────────── -->
 <div class="card shadow-sm">
   <div class="card-header py-2 fw-semibold small d-flex align-items-center gap-3 flex-wrap">
     <span><i class="bi bi-bar-chart-steps text-primary"></i> Instruction Cycle Diagram</span>
     <span class="ms-auto d-flex gap-3 fw-normal text-muted" style="font-size:.78rem">
       <span><i class="bi bi-x-lg text-danger"></i> Syscall</span>
-      <span><i class="bi bi-circle text-primary"></i> Interrupt</span>
+      <span><i class="bi bi-circle-fill text-primary"></i> Interrupt</span>
       <span class="fw-bold" style="font-size:.82rem">| END</span>
-      <span style="font-weight:900">+ Arrival</span>
+      <span style="font-weight:900;font-size:.9rem">+ Arrival</span>
     </span>
   </div>
   <div class="card-body p-2">
@@ -197,7 +221,7 @@
     <i class="bi bi-x-lg text-danger" style="width:16px"></i> Syscall &nbsp;<small class="text-muted">(×)</small>
   </div>
   <div class="ctx-item" id="ctx-interrupt" onclick="setEndType('interrupt')">
-    <i class="bi bi-circle text-primary" style="width:16px"></i> Interruption &nbsp;<small class="text-muted">(○)</small>
+    <i class="bi bi-circle-fill text-primary" style="width:16px"></i> Interruption &nbsp;<small class="text-muted">(●)</small>
   </div>
   <div class="ctx-item" id="ctx-end"       onclick="setEndType('end')">
     <span style="width:16px;display:inline-block;text-align:center;font-weight:900;font-size:16px">|</span>
@@ -205,11 +229,17 @@
   </div>
   <div class="ctx-div"></div>
   <div class="ctx-item" id="ctx-arrival"   onclick="toggleArrival()">
-    <span style="width:16px;display:inline-block;text-align:center;font-weight:900">+</span>
+    <span style="width:16px;display:inline-block;text-align:center;font-weight:900;font-size:15px">+</span>
     Toggle Arrival
   </div>
+  <!-- IO process assignment — only shown for the IO row -->
+  <div id="ctx-io-section" style="display:none">
+    <div class="ctx-div"></div>
+    <div class="ctx-hdr">IO — Proceso asignado</div>
+    <div id="ctx-io-procs"></div>
+  </div>
   <div class="ctx-div"></div>
-  <div class="ctx-item text-danger"        onclick="ctxDeactivate()">
+  <div class="ctx-item text-danger" onclick="ctxDeactivate()">
     <i class="bi bi-eraser" style="width:16px"></i> Deactivate cell
   </div>
 </div>
@@ -220,17 +250,22 @@
 //  State
 // ═══════════════════════════════════════════════════════════════════
 const S = {
-  processes: ['A'],       // user processes; IO-X rows are auto-generated
+  processes: ['A'],   // user process names; 'IO' row is always separate
   cycles: 10,
-  cells: {},              // "P:c" → { active, endType, arrival }
-  queues: [],             // [{ id, name, slots: { c: [proc,…] } }]
+  cells: {},          // "P:c" → { active, endType, arrival, ioProc? }
+  queues: [],         // [{ id, name, slots: { c: [proc,…] } }]
 };
 
 let nextChar = 'B';
 let qCounter = 0;
-let ctxKey   = null;    // key of right-clicked cell
-let dragSrc  = null;    // { qId, c, idx }  – for chip D&D
-let dropIdx  = -1;      // insertion index during drag-over
+let ctxKey   = null;    // "name:c" of right-clicked cell
+let ctxIsIO  = false;   // whether the right-clicked cell is in the IO row
+let dragSrc  = null;    // { qId, c, idx }
+let dropIdx  = -1;
+
+// Palette for process colours (burst bar + IO badge)
+const PALETTE = ['#0d6efd','#dc3545','#fd7e14','#6f42c1','#20c997','#e83e8c','#17a2b8','#ffc107'];
+const procColor = p => PALETTE[S.processes.indexOf(p) % PALETTE.length] || '#0d6efd';
 
 // ═══════════════════════════════════════════════════════════════════
 //  Cell helpers
@@ -239,7 +274,10 @@ const cKey = (p, c) => `${p}:${c}`;
 
 function getCell(p, c) {
   const k = cKey(p, c);
-  if (!S.cells[k]) S.cells[k] = { active: false, endType: 'none', arrival: false };
+  if (!S.cells[k]) {
+    S.cells[k] = { active: false, endType: 'none', arrival: false };
+    if (p === 'IO') S.cells[k].ioProc = null;
+  }
   return S.cells[k];
 }
 
@@ -251,17 +289,36 @@ function isActive(p, c) {
 //  End-type icon fragments
 // ═══════════════════════════════════════════════════════════════════
 const END_ICON = {
-  syscall:   '<i class="bi bi-x-lg"   style="color:#dc3545;font-size:14px"></i>',
-  interrupt: '<i class="bi bi-circle" style="color:#0d6efd;font-size:12px"></i>',
+  syscall:   '<i class="bi bi-x-lg"        style="color:#dc3545;font-size:15px"></i>',
+  interrupt: '<i class="bi bi-circle-fill" style="color:#0d6efd;font-size:13px"></i>',
   end:       '<div class="end-vbar"></div>',
 };
 
 // ═══════════════════════════════════════════════════════════════════
-//  Build one process or IO row
+//  Build instant ruler row (numbers ON the grid lines)
+// ═══════════════════════════════════════════════════════════════════
+function buildRulerRow() {
+  let h = '<tr class="ruler-row">';
+  h += '<td class="col-name" style="font-size:.72rem;font-weight:700;color:#6c757d">t</td>';
+  for (let c = 0; c < S.cycles; c++) {
+    h += '<td>';
+    h += `<span class="instant-num">${c}</span>`;
+    if (c === S.cycles - 1) {
+      h += `<span class="instant-num-last">${S.cycles}</span>`;
+    }
+    h += '</td>';
+  }
+  h += '</tr>';
+  return h;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Build one data row (process or shared IO row)
 // ═══════════════════════════════════════════════════════════════════
 function buildRow(name, isIO) {
   let h = `<tr${isIO ? ' class="io-row"' : ''}>`;
   h += `<td class="col-name">${name}</td>`;
+
   for (let c = 0; c < S.cycles; c++) {
     const cell = getCell(name, c);
     const prev = isActive(name, c - 1);
@@ -275,14 +332,25 @@ function buildRow(name, isIO) {
       else                seg = 'seg-middle';
     }
 
-    // End marker only on the last cell of a burst segment
     const showEnd     = cell.active && !next && cell.endType !== 'none';
-    const showArrival = cell.active && cell.arrival;
+    const showArrival = cell.active && !isIO && cell.arrival;
+
+    // Per-cell burst colour: IO cells use ioProc colour if assigned
+    let barColor = '';
+    if (isIO && cell.active && cell.ioProc) {
+      barColor = ` style="background:${procColor(cell.ioProc)}"`;
+    }
 
     h += `<td class="cell" onclick="clickCell('${name}',${c})" oncontextmenu="rightClick(event,'${name}',${c})">`;
-    if (cell.active)  h += `<div class="burst-bg ${seg}"></div>`;
-    if (showArrival)  h += `<span class="arrival-mark">+</span>`;
-    if (showEnd)      h += `<span class="end-mark">${END_ICON[cell.endType]}</span>`;
+    if (cell.active) {
+      h += `<div class="burst-bg ${seg}"${barColor}></div>`;
+      // IO process label floating above the line
+      if (isIO && cell.ioProc) {
+        h += `<span class="io-proc-label" style="color:${procColor(cell.ioProc)}">${cell.ioProc}</span>`;
+      }
+    }
+    if (showArrival) h += `<span class="arrival-mark">+</span>`;
+    if (showEnd)     h += `<span class="end-mark">${END_ICON[cell.endType]}</span>`;
     h += '</td>';
   }
   h += '</tr>';
@@ -309,16 +377,17 @@ function buildQueueRow(q) {
       ondrop="qDrop(event,'${q.id}',${c})"
       ondragleave="qDragLeave(event)">`;
     slot.forEach((pr, i) => {
-      const isIO = pr.startsWith('IO-');
-      h += `<span class="proc-chip${isIO ? ' io-chip' : ''}"
+      const col = procColor(pr);
+      h += `<span class="proc-chip"
+        style="background:${col}"
         draggable="true"
         ondragstart="qDragStart(event,'${q.id}',${c},${i})"
         ondragend="qDragEnd(event)"
         ondblclick="removeFromSlot('${q.id}',${c},${i})"
         title="Drag to reorder · Dbl-click to remove">${pr}</span>`;
     });
-    const allProcs = S.processes.flatMap(p => [p, `IO-${p}`]);
-    const opts = allProcs.map(pr => `<option value="${pr}">${pr}</option>`).join('');
+    // Only regular processes — no IO row
+    const opts = S.processes.map(pr => `<option value="${pr}">${pr}</option>`).join('');
     h += `<select class="slot-add" onchange="addToSlot('${q.id}',${c},this)">
       <option value="">+</option>${opts}
     </select>`;
@@ -332,25 +401,16 @@ function buildQueueRow(q) {
 //  Main render — single combined table
 // ═══════════════════════════════════════════════════════════════════
 function render() {
-  let h = '';
+  let h = '<tbody>';
 
-  // ── THEAD: instant ruler ──
-  h += '<thead><tr>';
-  h += '<th class="col-name" style="border-bottom:2px solid #6c757d;vertical-align:bottom;font-size:.72rem">Process</th>';
-  for (let c = 0; c < S.cycles; c++) {
-    h += `<th class="col-instant">${c}</th>`;
-  }
-  h += '</tr></thead>';
+  // Instant ruler (numbers on grid lines, not a <thead>)
+  h += buildRulerRow();
 
-  // ── TBODY: process rows + IO rows + queue section ──
-  h += '<tbody>';
+  // Process rows + single shared IO row
+  for (const p of S.processes) h += buildRow(p, false);
+  h += buildRow('IO', true);
 
-  for (const p of S.processes) {
-    h += buildRow(p, false);
-    h += buildRow(`IO-${p}`, true);
-  }
-
-  // Queue divider row (contains the "add queue" control)
+  // Queue divider + queue rows
   h += '<tr class="q-divider">';
   h += `<td class="col-name" style="font-size:.7rem;padding:5px 6px">
     <div class="fw-bold text-success mb-1" style="font-size:.75rem">
@@ -361,20 +421,15 @@ function render() {
              style="font-size:.68rem;padding:1px 4px;min-width:0"
              onkeydown="if(event.key==='Enter')addQueue()" />
       <button class="btn btn-success btn-sm py-0 px-2"
-              onclick="addQueue()"
-              style="font-size:.68rem">+</button>
+              onclick="addQueue()" style="font-size:.68rem">+</button>
     </div>
   </td>`;
   for (let c = 0; c < S.cycles; c++) h += '<td></td>';
   h += '</tr>';
 
-  // Queue rows
-  for (const q of S.queues) {
-    h += buildQueueRow(q);
-  }
+  for (const q of S.queues) h += buildQueueRow(q);
 
   h += '</tbody>';
-
   document.getElementById('mainTable').innerHTML = h;
   document.getElementById('btnRmProc').disabled  = S.processes.length <= 1;
   document.getElementById('btnRmCycle').disabled = S.cycles <= 1;
@@ -393,14 +448,17 @@ function removeLastProcess() {
   if (S.processes.length <= 1) return;
   const removed = S.processes.pop();
   nextChar = String.fromCharCode(nextChar.charCodeAt(0) - 1);
-  const ioName = `IO-${removed}`;
+  // Clear process cells
+  for (let c = 0; c < S.cycles; c++) delete S.cells[cKey(removed, c)];
+  // Clear IO cells assigned to this process
   for (let c = 0; c < S.cycles; c++) {
-    delete S.cells[cKey(removed, c)];
-    delete S.cells[cKey(ioName, c)];
+    const io = S.cells[cKey('IO', c)];
+    if (io && io.ioProc === removed) io.ioProc = null;
   }
+  // Clean queue slots
   S.queues.forEach(q => {
     for (let c = 0; c < S.cycles; c++) {
-      if (q.slots[c]) q.slots[c] = q.slots[c].filter(pr => pr !== removed && pr !== ioName);
+      if (q.slots[c]) q.slots[c] = q.slots[c].filter(pr => pr !== removed);
     }
   });
   render();
@@ -411,8 +469,8 @@ function addCycle() { S.cycles++; render(); }
 function removeCycle() {
   if (S.cycles <= 1) return;
   S.cycles--;
-  const allNames = S.processes.flatMap(p => [p, `IO-${p}`]);
-  allNames.forEach(n => delete S.cells[cKey(n, S.cycles)]);
+  S.processes.forEach(p => delete S.cells[cKey(p, S.cycles)]);
+  delete S.cells[cKey('IO', S.cycles)];
   S.queues.forEach(q => delete q.slots[S.cycles]);
   render();
 }
@@ -423,7 +481,10 @@ function removeCycle() {
 function clickCell(p, c) {
   const cell = getCell(p, c);
   cell.active = !cell.active;
-  if (!cell.active) { cell.endType = 'none'; cell.arrival = false; }
+  if (!cell.active) {
+    cell.endType = 'none'; cell.arrival = false;
+    if (p === 'IO') cell.ioProc = null;
+  }
   render();
 }
 
@@ -431,14 +492,36 @@ function rightClick(e, p, c) {
   e.preventDefault();
   const cell = getCell(p, c);
   if (!cell.active) { cell.active = true; render(); }
-  ctxKey = cKey(p, c);
+  ctxKey  = cKey(p, c);
+  ctxIsIO = (p === 'IO');
 
+  // End-type highlights
   ['none', 'syscall', 'interrupt', 'end'].forEach(t => {
     const el = document.getElementById(`ctx-${t}`);
     if (el) el.classList.toggle('ctx-active', cell.endType === t);
   });
+
+  // Arrival (hidden for IO row)
   const arrEl = document.getElementById('ctx-arrival');
-  if (arrEl) arrEl.classList.toggle('ctx-active', !!cell.arrival);
+  arrEl.style.display = ctxIsIO ? 'none' : '';
+  if (!ctxIsIO) arrEl.classList.toggle('ctx-active', !!cell.arrival);
+
+  // IO process assignment section
+  const ioSec   = document.getElementById('ctx-io-section');
+  const ioProcs = document.getElementById('ctx-io-procs');
+  ioSec.style.display = ctxIsIO ? '' : 'none';
+  if (ctxIsIO) {
+    let ih = `<div class="ctx-item${cell.ioProc === null ? ' ctx-active' : ''}" onclick="setIOProc(null)">
+      <i class="bi bi-dash" style="width:16px"></i> Ninguno
+    </div>`;
+    S.processes.forEach(pr => {
+      ih += `<div class="ctx-item${cell.ioProc === pr ? ' ctx-active' : ''}" onclick="setIOProc('${pr}')">
+        <span style="display:inline-block;width:12px;height:12px;background:${procColor(pr)};border-radius:2px;flex-shrink:0"></span>
+        ${pr}
+      </div>`;
+    });
+    ioProcs.innerHTML = ih;
+  }
 
   const menu = document.getElementById('ctxMenu');
   menu.style.display = 'block';
@@ -457,11 +540,16 @@ function toggleArrival() {
   hideCtx(); render();
 }
 
+function setIOProc(name) {
+  if (ctxKey && S.cells[ctxKey]) S.cells[ctxKey].ioProc = name;
+  hideCtx(); render();
+}
+
 function ctxDeactivate() {
   if (ctxKey && S.cells[ctxKey]) {
-    S.cells[ctxKey].active  = false;
-    S.cells[ctxKey].endType = 'none';
-    S.cells[ctxKey].arrival = false;
+    const cell = S.cells[ctxKey];
+    cell.active = false; cell.endType = 'none'; cell.arrival = false;
+    if ('ioProc' in cell) cell.ioProc = null;
   }
   hideCtx(); render();
 }
@@ -531,21 +619,17 @@ function qDrop(e, tQId, tC) {
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
   if (!dragSrc) return;
-
   const srcQ = S.queues.find(q => q.id === dragSrc.qId);
   const tgtQ = S.queues.find(q => q.id === tQId);
   if (!srcQ || !tgtQ) { dragSrc = null; return; }
-
   const proc = (srcQ.slots[dragSrc.c] || [])[dragSrc.idx];
   if (proc === undefined) { dragSrc = null; return; }
-
   srcQ.slots[dragSrc.c].splice(dragSrc.idx, 1);
   if (!tgtQ.slots[tC]) tgtQ.slots[tC] = [];
   const insertAt = (dropIdx < 0 || dropIdx > tgtQ.slots[tC].length)
     ? tgtQ.slots[tC].length : dropIdx;
   const adj = (srcQ === tgtQ && dragSrc.c === tC && dragSrc.idx < insertAt) ? -1 : 0;
   tgtQ.slots[tC].splice(insertAt + adj, 0, proc);
-
   dragSrc = null; dropIdx = -1;
   render();
 }
