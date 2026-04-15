@@ -875,7 +875,9 @@ function runSimulation(procs, algo, quantum) {
   //   bursts    : int[] — alternating [cpu1, io1, cpu2, io2, ...]
   //   phase     : int  — current index into bursts[]
   //   remaining : int  — ticks left in the current burst phase
-  //   status    : 'not_arrived'|'ready'|'running'|'io'|'done'
+  //   status    : 'not_arrived'|'ready'|'running'|'io'|'io_wait'|'done'
+  //                 io      = actively using the shared IO device
+  //                 io_wait = blocked, waiting for the IO device to become free
   //   rrTick    : int  — ticks consumed in the current RR quantum slot
   // }
   const ps = {};
@@ -885,28 +887,32 @@ function runSimulation(procs, algo, quantum) {
     ps[name] = { arrival, bursts: b, phase: 0, remaining: 0, status: 'not_arrived', rrTick: 0 };
   }
 
-  // Priority queues (processed in order: syscall-return → IO-return → new-arrival)
+  // Priority queues for CPU (processed in order: syscall-return → IO-return → new-arrival)
   const syscallRet  = [], ioRet = [], newArrivals = [];
 
-  // Parallel IO tracking: name → { remaining: ticks left }
-  const ioProcs       = {};
+  // Shared IO device — single active process + FIFO waiting queue
+  // ioActive : { name, remaining } | null — the process currently using IO
+  // ioQueue  : [{ name, remaining }]      — processes blocked waiting for IO (FIFO)
+  let   ioActive = null;
+  const ioQueue  = [];
+
   // Per-process IO active instants: name → { t: true }
   const ioActiveMap   = {};
-  // Set of IO processes that started this tick (skip decrement)
+  // Names of IO processes that began IO this tick (skip decrement on tick they start)
   const ioJustStarted = new Set();
 
   let cpuProc     = null;
   let preemptNext = false;
 
   const cpuAt  = {};  // t → name|null
-  const qAt    = {};  // t → [names]
+  const qAt    = {};  // t → [names] (CPU ready queue)
   const endAt  = {};  // "name:t" → type
   const arrAt  = {};  // "name:t" → true
 
   const names = procs.map(p => p.name);
 
   function allDone()  { return names.every(n => ps[n].status === 'done'); }
-  function anyIO()    { return Object.keys(ioProcs).length > 0; }
+  function anyIO()    { return ioActive !== null || ioQueue.length > 0; }
   function getQueue() { return [...syscallRet, ...ioRet, ...newArrivals]; }
 
   for (let t = 0; t < 500 && (!allDone() || cpuProc || anyIO()); t++) {
@@ -920,21 +926,27 @@ function runSimulation(procs, algo, quantum) {
     }
     preemptNext = false;
 
-    // 2. IO completions (remaining reached 0 after last tick's decrement)
-    for (const [name, info] of Object.entries(ioProcs)) {
-      if (info.remaining === 0) {
-        const p  = ps[name];
-        const np = p.phase + 1;
-        if (np < p.bursts.length && p.bursts[np] > 0) {
-          p.phase     = np;
-          p.remaining = p.bursts[np];
-          p.rrTick    = 0;
-          p.status    = 'ready';
-          ioRet.push(name);
-        } else {
-          p.status = 'done';
-        }
-        delete ioProcs[name];
+    // 2. IO completion — ioActive.remaining reached 0 after last tick's decrement
+    if (ioActive && ioActive.remaining === 0) {
+      const name = ioActive.name;
+      const p    = ps[name];
+      const np   = p.phase + 1;
+      if (np < p.bursts.length && p.bursts[np] > 0) {
+        p.phase     = np;
+        p.remaining = p.bursts[np];
+        p.rrTick    = 0;
+        p.status    = 'ready';
+        ioRet.push(name);
+      } else {
+        p.status = 'done';
+      }
+      // Hand the IO device to the next waiting process (if any)
+      if (ioQueue.length > 0) {
+        ioActive = ioQueue.shift();
+        ps[ioActive.name].status = 'io';
+        ioJustStarted.add(ioActive.name);
+      } else {
+        ioActive = null;
       }
     }
 
@@ -960,9 +972,9 @@ function runSimulation(procs, algo, quantum) {
 
     // 5. Record state
     cpuAt[t] = cpuProc || null;
-    for (const name of Object.keys(ioProcs)) {
-      if (!ioActiveMap[name]) ioActiveMap[name] = {};
-      ioActiveMap[name][t] = true;
+    if (ioActive) {
+      if (!ioActiveMap[ioActive.name]) ioActiveMap[ioActive.name] = {};
+      ioActiveMap[ioActive.name][t] = true;
     }
     qAt[t] = getQueue().slice();
 
@@ -977,10 +989,17 @@ function runSimulation(procs, algo, quantum) {
         const np = p.phase + 1;
         if (np < p.bursts.length && p.bursts[np] > 0) {
           endAt[`${cpuProc}:${t}`] = 'interrupt';
-          p.phase  = np;
-          p.status = 'io';
-          ioProcs[cpuProc] = { remaining: p.bursts[np] };
-          ioJustStarted.add(cpuProc);
+          p.phase = np;
+          if (ioActive === null) {
+            // IO device is free — use it immediately
+            p.status = 'io';
+            ioActive = { name: cpuProc, remaining: p.bursts[np] };
+            ioJustStarted.add(cpuProc);
+          } else {
+            // IO device is busy — wait in the FIFO IO queue
+            p.status = 'io_wait';
+            ioQueue.push({ name: cpuProc, remaining: p.bursts[np] });
+          }
         } else {
           endAt[`${cpuProc}:${t}`] = 'end';
           p.status = 'done';
@@ -993,9 +1012,9 @@ function runSimulation(procs, algo, quantum) {
       }
     }
 
-    // 7. Decrement IO (skip processes that just entered IO this tick)
-    for (const [name, info] of Object.entries(ioProcs)) {
-      if (!ioJustStarted.has(name)) info.remaining--;
+    // 7. Decrement IO device (skip the process that just started IO this tick)
+    if (ioActive && !ioJustStarted.has(ioActive.name)) {
+      ioActive.remaining--;
     }
     ioJustStarted.clear();
   }
