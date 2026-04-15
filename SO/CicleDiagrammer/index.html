@@ -785,6 +785,9 @@ function rebuildBurstTable() {
   updateAlgoUI();
 }
 
+// Escape a string for safe interpolation into a JS single-quoted string inside an HTML attribute.
+function escAttr(s) { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
 function buildBurstTableHTML() {
   const bc = solverBurstCols;
   let h = '<div class="table-responsive"><table class="table table-sm table-bordered align-middle text-center mb-0" style="font-size:.82rem"><thead class="table-light"><tr>';
@@ -797,18 +800,19 @@ function buildBurstTableHTML() {
   h += '</tr></thead><tbody>';
   for (const p of S.processes) {
     if (!burstData[p]) burstData[p] = { arrival: 0, bursts: Array(bc).fill(1) };
-    const d = burstData[p];
+    const d  = burstData[p];
+    const ep = escAttr(p);
     while (d.bursts.length < bc) d.bursts.push(0);
     h += '<tr>';
     h += `<td style="font-weight:700;color:${procColor(p)}">${p}</td>`;
     h += `<td><input type="number" min="0" class="form-control form-control-sm text-center"
-           value="${d.arrival}" oninput="burstData['${p}'].arrival=Math.max(0,+this.value||0)"></td>`;
+           value="${d.arrival}" oninput="burstData['${ep}'].arrival=Math.max(0,+this.value||0)"></td>`;
     for (let i = 0; i < bc; i++) {
       const isIO = i % 2 === 1;
       h += `<td${isIO ? ' style="background:#f0faf4"' : ''}><input type="number" min="0"
              class="form-control form-control-sm text-center"
              value="${d.bursts[i] ?? 0}"
-             oninput="burstData['${p}'].bursts[${i}]=Math.max(0,+this.value||0)"></td>`;
+             oninput="burstData['${ep}'].bursts[${i}]=Math.max(0,+this.value||0)"></td>`;
     }
     h += '</tr>';
   }
@@ -866,6 +870,14 @@ function solveProblem() {
 // ═══════════════════════════════════════════════════════════════════
 function runSimulation(procs, algo, quantum) {
   // Build per-process state
+  // Each entry: {
+  //   arrival   : int  — tick at which the process first becomes ready
+  //   bursts    : int[] — alternating [cpu1, io1, cpu2, io2, ...]
+  //   phase     : int  — current index into bursts[]
+  //   remaining : int  — ticks left in the current burst phase
+  //   status    : 'not_arrived'|'ready'|'running'|'io'|'done'
+  //   rrTick    : int  — ticks consumed in the current RR quantum slot
+  // }
   const ps = {};
   for (const { name, arrival, bursts } of procs) {
     let b = [...bursts];
@@ -874,9 +886,9 @@ function runSimulation(procs, algo, quantum) {
   }
 
   // Priority queues (processed in order: syscall-return → IO-return → new-arrival)
-  const syscallRet = [], ioRet = [], newArr = [];
+  const syscallRet  = [], ioRet = [], newArrivals = [];
 
-  // Parallel IO tracking: name → remaining ticks
+  // Parallel IO tracking: name → { remaining: ticks left }
   const ioProcs       = {};
   // Per-process IO active instants: name → { t: true }
   const ioActiveMap   = {};
@@ -895,7 +907,7 @@ function runSimulation(procs, algo, quantum) {
 
   function allDone()  { return names.every(n => ps[n].status === 'done'); }
   function anyIO()    { return Object.keys(ioProcs).length > 0; }
-  function getQueue() { return [...syscallRet, ...ioRet, ...newArr]; }
+  function getQueue() { return [...syscallRet, ...ioRet, ...newArrivals]; }
 
   for (let t = 0; t < 500 && (!allDone() || cpuProc || anyIO()); t++) {
 
@@ -908,9 +920,9 @@ function runSimulation(procs, algo, quantum) {
     }
     preemptNext = false;
 
-    // 2. IO completions (rem reached 0 after last tick's decrement)
+    // 2. IO completions (remaining reached 0 after last tick's decrement)
     for (const [name, info] of Object.entries(ioProcs)) {
-      if (info.rem === 0) {
+      if (info.remaining === 0) {
         const p  = ps[name];
         const np = p.phase + 1;
         if (np < p.bursts.length && p.bursts[np] > 0) {
@@ -935,14 +947,14 @@ function runSimulation(procs, algo, quantum) {
         p.remaining = p.bursts[0];
         p.rrTick    = 0;
         p.status    = 'ready';
-        newArr.push(n);
+        newArrivals.push(n);
         arrAt[`${n}:${t}`] = true;
       }
     }
 
     // 4. Schedule CPU if idle
     if (!cpuProc) {
-      const next = syscallRet.shift() ?? ioRet.shift() ?? newArr.shift() ?? null;
+      const next = syscallRet.shift() ?? ioRet.shift() ?? newArrivals.shift() ?? null;
       if (next) { cpuProc = next; ps[next].status = 'running'; ps[next].rrTick = 0; }
     }
 
@@ -967,7 +979,7 @@ function runSimulation(procs, algo, quantum) {
           endAt[`${cpuProc}:${t}`] = 'interrupt';
           p.phase  = np;
           p.status = 'io';
-          ioProcs[cpuProc] = { rem: p.bursts[np] };
+          ioProcs[cpuProc] = { remaining: p.bursts[np] };
           ioJustStarted.add(cpuProc);
         } else {
           endAt[`${cpuProc}:${t}`] = 'end';
@@ -983,7 +995,7 @@ function runSimulation(procs, algo, quantum) {
 
     // 7. Decrement IO (skip processes that just entered IO this tick)
     for (const [name, info] of Object.entries(ioProcs)) {
-      if (!ioJustStarted.has(name)) info.rem--;
+      if (!ioJustStarted.has(name)) info.remaining--;
     }
     ioJustStarted.clear();
   }
