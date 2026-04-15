@@ -913,7 +913,8 @@ function runSimulation(procs, algo, quantum) {
 
   function allDone()  { return names.every(n => ps[n].status === 'done'); }
   function anyIO()    { return ioActive !== null || ioQueue.length > 0; }
-  function getQueue() { return [...syscallRet, ...ioRet, ...newArrivals]; }
+  // RR-preempted (syscallRet) goes LAST — process already ran its quantum
+  function getQueue() { return [...ioRet, ...newArrivals, ...syscallRet]; }
 
   for (let t = 0; t < 500 && (!allDone() || cpuProc || anyIO()); t++) {
 
@@ -966,7 +967,7 @@ function runSimulation(procs, algo, quantum) {
 
     // 4. Schedule CPU if idle
     if (!cpuProc) {
-      const next = syscallRet.shift() ?? ioRet.shift() ?? newArrivals.shift() ?? null;
+      const next = ioRet.shift() ?? newArrivals.shift() ?? syscallRet.shift() ?? null;
       if (next) { cpuProc = next; ps[next].status = 'running'; ps[next].rrTick = 0; }
     }
 
