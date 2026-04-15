@@ -977,6 +977,10 @@ function runSimulation(procs, algo, quantum) {
     for (const n of newThisTick) readyQueue.push(n);
     if (preemptThisTick !== null) readyQueue.push(preemptThisTick);
 
+    // Snapshot the ready queue before CPU scheduling so that processes
+    // returning from IO appear in the queue at the instant they become ready.
+    qAt[t] = readyQueue.slice();
+
     // 4. Schedule CPU if idle
     if (!cpuProc && readyQueue.length > 0) {
       const next = readyQueue.shift();
@@ -989,7 +993,6 @@ function runSimulation(procs, algo, quantum) {
       if (!ioActiveMap[ioActive.name]) ioActiveMap[ioActive.name] = {};
       ioActiveMap[ioActive.name][t] = true;
     }
-    qAt[t] = readyQueue.slice();
 
     // 6. Execute CPU
     if (cpuProc) {
