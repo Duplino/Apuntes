@@ -887,8 +887,10 @@ function runSimulation(procs, algo, quantum) {
     ps[name] = { arrival, bursts: b, phase: 0, remaining: 0, status: 'not_arrived', rrTick: 0 };
   }
 
-  // Priority queues for CPU (processed in order: syscall-return → IO-return → new-arrival)
-  const syscallRet  = [], ioRet = [], newArrivals = [];
+  // Single FIFO ready queue — processes join in arrival order.
+  // When multiple processes become ready at the same tick, they are
+  // appended in tie-breaking priority: IO-return → new-arrival → RR-preempted.
+  const readyQueue = [];
 
   // Shared IO device — single active process + FIFO waiting queue
   // ioActive : { name, remaining } | null — the process currently using IO
@@ -913,16 +915,20 @@ function runSimulation(procs, algo, quantum) {
 
   function allDone()  { return names.every(n => ps[n].status === 'done'); }
   function anyIO()    { return ioActive !== null || ioQueue.length > 0; }
-  // RR-preempted (syscallRet) goes LAST — process already ran its quantum
-  function getQueue() { return [...ioRet, ...newArrivals, ...syscallRet]; }
 
   for (let t = 0; t < 500 && (!allDone() || cpuProc || anyIO()); t++) {
+
+    // Per-tick buffers — used only to apply same-tick tie-breaking before
+    // appending to readyQueue.  They are flushed into readyQueue before step 4.
+    const ioThisTick      = [];  // returned from IO this tick
+    const newThisTick     = [];  // first arrival this tick
+    let   preemptThisTick = null; // RR quantum-expired this tick (goes last)
 
     // 1. RR preemption flagged at end of previous instant
     if (preemptNext && cpuProc) {
       ps[cpuProc].status = 'ready';
       ps[cpuProc].rrTick = 0;
-      syscallRet.push(cpuProc);
+      preemptThisTick = cpuProc;
       cpuProc = null;
     }
     preemptNext = false;
@@ -937,7 +943,7 @@ function runSimulation(procs, algo, quantum) {
         p.remaining = p.bursts[np];
         p.rrTick    = 0;
         p.status    = 'ready';
-        ioRet.push(name);
+        ioThisTick.push(name);
       } else {
         p.status = 'done';
       }
@@ -960,15 +966,21 @@ function runSimulation(procs, algo, quantum) {
         p.remaining = p.bursts[0];
         p.rrTick    = 0;
         p.status    = 'ready';
-        newArrivals.push(n);
+        newThisTick.push(n);
         arrAt[`${n}:${t}`] = true;
       }
     }
 
+    // Flush per-tick buffers into readyQueue with tie-breaking order:
+    // IO-return first, then new arrivals, then RR-preempted (goes to back)
+    for (const n of ioThisTick)  readyQueue.push(n);
+    for (const n of newThisTick) readyQueue.push(n);
+    if (preemptThisTick !== null) readyQueue.push(preemptThisTick);
+
     // 4. Schedule CPU if idle
-    if (!cpuProc) {
-      const next = ioRet.shift() ?? newArrivals.shift() ?? syscallRet.shift() ?? null;
-      if (next) { cpuProc = next; ps[next].status = 'running'; ps[next].rrTick = 0; }
+    if (!cpuProc && readyQueue.length > 0) {
+      const next = readyQueue.shift();
+      cpuProc = next; ps[next].status = 'running'; ps[next].rrTick = 0;
     }
 
     // 5. Record state
@@ -977,7 +989,7 @@ function runSimulation(procs, algo, quantum) {
       if (!ioActiveMap[ioActive.name]) ioActiveMap[ioActive.name] = {};
       ioActiveMap[ioActive.name][t] = true;
     }
-    qAt[t] = getQueue().slice();
+    qAt[t] = readyQueue.slice();
 
     // 6. Execute CPU
     if (cpuProc) {
