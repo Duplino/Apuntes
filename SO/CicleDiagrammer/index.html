@@ -195,6 +195,10 @@
     <button class="btn btn-outline-danger btn-sm" id="btnErrors" onclick="toggleErrors()">
       <i class="bi bi-bug"></i> Marcar errores
     </button>
+    <div class="vr mx-1"></div>
+    <button class="btn btn-outline-primary btn-sm" onclick="showLoadModal()">
+      <i class="bi bi-table"></i> Cargar ciclos
+    </button>
     <div class="ms-auto small text-muted d-none d-md-block">
       <i class="bi bi-info-circle"></i>
       Left-click: toggle &nbsp;·&nbsp; Right-click: end type / arrival / IO process
@@ -220,8 +224,29 @@
   </div>
 </div>
 
-<!-- ── Context menu ─────────────────────────────────────────────────── -->
-<div id="ctxMenu">
+<!-- ── Solution section ───────────────────────────────────────────────── -->
+<div id="solutionSection" class="mt-3" style="display:none">
+  <div class="card shadow-sm">
+    <div class="card-header py-2 fw-semibold small d-flex align-items-center gap-3 flex-wrap">
+      <span><i class="bi bi-check2-circle text-success"></i> Solución generada</span>
+      <span id="solutionAlgoLabel" class="badge bg-primary ms-1" style="font-size:.75rem"></span>
+      <span class="ms-auto d-flex gap-3 fw-normal text-muted" style="font-size:.78rem">
+        <span><i class="bi bi-x-lg text-danger" style="font-size:1rem"></i> <strong>Syscall</strong></span>
+        <span><i class="bi bi-circle-fill text-primary"></i> Interrupt</span>
+        <span class="fw-bold" style="font-size:.82rem">| END</span>
+        <span><i class="bi bi-plus-lg text-success" style="font-size:1rem"></i> <strong>Arrival</strong></span>
+        <span><span style="display:inline-block;width:22px;height:4px;background:#198754;vertical-align:middle"></span> IO</span>
+      </span>
+    </div>
+    <div class="card-body p-2">
+      <div class="tbl-wrap">
+        <table class="main-tbl" id="solutionTable"></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Context menu ─────────────────────────────────────────────────── --><div id="ctxMenu">
   <div class="ctx-hdr">End Type</div>
   <div class="ctx-item" id="ctx-none"      onclick="setEndType('none')">
     <i class="bi bi-square" style="width:16px"></i> None
@@ -250,6 +275,49 @@
   <div class="ctx-div"></div>
   <div class="ctx-item text-danger" onclick="ctxDeactivate()">
     <i class="bi bi-eraser" style="width:16px"></i> Deactivate cell
+  </div>
+</div>
+
+<!-- ── Load-Cycles modal ──────────────────────────────────────────────── -->
+<div class="modal fade" id="loadCyclesModal" tabindex="-1" aria-labelledby="loadCyclesModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title" id="loadCyclesModalLabel">
+          <i class="bi bi-table text-primary"></i> Cargar ciclos del problema
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="burstTableContainer" class="mb-3"></div>
+        <div class="d-flex gap-2 flex-wrap mb-3">
+          <button class="btn btn-sm btn-outline-secondary" onclick="addBurstPair()">
+            <i class="bi bi-plus-lg"></i> Añadir par IO–CPU
+          </button>
+          <button class="btn btn-sm btn-outline-danger" id="btnRemovePair" onclick="removeBurstPair()" disabled>
+            <i class="bi bi-dash-lg"></i> Quitar último par
+          </button>
+        </div>
+        <div class="d-flex gap-3 align-items-center flex-wrap">
+          <label class="fw-semibold mb-0">Algoritmo:</label>
+          <select class="form-select form-select-sm" style="width:auto" id="algoSelect" onchange="updateAlgoUI()">
+            <option value="fifo">FIFO</option>
+            <option value="rr">Round Robin</option>
+          </select>
+          <div id="quantumDiv" style="display:none" class="d-flex align-items-center gap-2">
+            <label class="mb-0">Quantum:</label>
+            <input type="number" min="1" value="2" id="quantumInput"
+                   class="form-control form-control-sm" style="width:72px">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="solveProblem()">
+          <i class="bi bi-calculator"></i> Resolver
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -376,7 +444,7 @@ function buildRow(name, isIO, errCols) {
       else                seg = 'seg-middle';
     }
 
-    const showEnd     = cell.active && !next && cell.endType !== 'none';
+    const showEnd     = cell.active && cell.endType !== 'none';
     const showArrival = !isIO && cell.arrival;
 
     let barColor = '';
@@ -688,10 +756,375 @@ function qDrop(e, tQId, tC) {
   render();
 }
 
+
 // ═══════════════════════════════════════════════════════════════════
 //  Boot
 // ═══════════════════════════════════════════════════════════════════
 render();
+
+// ═══════════════════════════════════════════════════════════════════
+//  Solver — state
+// ═══════════════════════════════════════════════════════════════════
+let burstData      = {};  // procName → { arrival: int, bursts: int[] }
+let solverBurstCols = 3;  // starts at 3 (CPU|IO|CPU), +2 per pair added
+
+// ─── Modal helpers ──────────────────────────────────────────────────
+function showLoadModal() {
+  for (const p of S.processes) {
+    if (!burstData[p]) burstData[p] = { arrival: 0, bursts: Array(solverBurstCols).fill(1) };
+    while (burstData[p].bursts.length < solverBurstCols) burstData[p].bursts.push(0);
+  }
+  rebuildBurstTable();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('loadCyclesModal')).show();
+}
+
+function rebuildBurstTable() {
+  document.getElementById('burstTableContainer').innerHTML = buildBurstTableHTML();
+  document.getElementById('btnRemovePair').disabled = solverBurstCols <= 3;
+  document.getElementById('algoSelect').value = document.getElementById('algoSelect').value || 'fifo';
+  updateAlgoUI();
+}
+
+// Escape a string for safe interpolation into a JS single-quoted string inside an HTML attribute.
+function escAttr(s) { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+function buildBurstTableHTML() {
+  const bc = solverBurstCols;
+  let h = '<div class="table-responsive"><table class="table table-sm table-bordered align-middle text-center mb-0" style="font-size:.82rem"><thead class="table-light"><tr>';
+  h += '<th style="min-width:70px">Proceso</th><th style="min-width:68px">Llegada</th>';
+  for (let i = 0; i < bc; i++) {
+    const isIO = i % 2 === 1;
+    const n    = Math.floor(i / 2) + 1;
+    h += `<th style="min-width:62px;background:${isIO ? '#e6f6ee' : '#e7f1ff'}">${isIO ? 'IO' : 'CPU'}${n}</th>`;
+  }
+  h += '</tr></thead><tbody>';
+  for (const p of S.processes) {
+    if (!burstData[p]) burstData[p] = { arrival: 0, bursts: Array(bc).fill(1) };
+    const d  = burstData[p];
+    const ep = escAttr(p);
+    while (d.bursts.length < bc) d.bursts.push(0);
+    h += '<tr>';
+    h += `<td style="font-weight:700;color:${procColor(p)}">${p}</td>`;
+    h += `<td><input type="number" min="0" class="form-control form-control-sm text-center"
+           value="${d.arrival}" oninput="burstData['${ep}'].arrival=Math.max(0,+this.value||0)"></td>`;
+    for (let i = 0; i < bc; i++) {
+      const isIO = i % 2 === 1;
+      h += `<td${isIO ? ' style="background:#f0faf4"' : ''}><input type="number" min="0"
+             class="form-control form-control-sm text-center"
+             value="${d.bursts[i] ?? 0}"
+             oninput="burstData['${ep}'].bursts[${i}]=Math.max(0,+this.value||0)"></td>`;
+    }
+    h += '</tr>';
+  }
+  h += '</tbody></table></div>';
+  return h;
+}
+
+function addBurstPair() {
+  solverBurstCols += 2;
+  for (const p of S.processes) {
+    if (!burstData[p]) burstData[p] = { arrival: 0, bursts: [] };
+    while (burstData[p].bursts.length < solverBurstCols) burstData[p].bursts.push(0);
+  }
+  rebuildBurstTable();
+}
+
+function removeBurstPair() {
+  if (solverBurstCols <= 3) return;
+  solverBurstCols -= 2;
+  rebuildBurstTable();
+}
+
+function updateAlgoUI() {
+  const algo = document.getElementById('algoSelect').value;
+  document.getElementById('quantumDiv').style.display = algo === 'rr' ? '' : 'none';
+}
+
+// ─── Solve entry point ──────────────────────────────────────────────
+function solveProblem() {
+  const algo    = document.getElementById('algoSelect').value;
+  const quantum = Math.max(1, parseInt(document.getElementById('quantumInput').value) || 2);
+
+  const procs = S.processes.map(name => {
+    const d = burstData[name] || { arrival: 0, bursts: [1] };
+    let bursts = [...d.bursts];
+    while (bursts.length > 0 && !bursts[bursts.length - 1]) bursts.pop();
+    return { name, arrival: d.arrival || 0, bursts };
+  }).filter(p => p.bursts.length > 0);
+
+  if (!procs.length) return;
+
+  const result = runSimulation(procs, algo, quantum);
+
+  bootstrap.Modal.getInstance(document.getElementById('loadCyclesModal'))?.hide();
+
+  const algoLabel = algo === 'rr' ? `Round Robin (q=${quantum})` : 'FIFO';
+  document.getElementById('solutionAlgoLabel').textContent = algoLabel;
+
+  document.getElementById('solutionSection').style.display = '';
+  document.getElementById('solutionTable').innerHTML = buildSolutionHTML(result, procs);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Scheduler simulation
+// ═══════════════════════════════════════════════════════════════════
+function runSimulation(procs, algo, quantum) {
+  // Build per-process state
+  // Each entry: {
+  //   arrival   : int  — tick at which the process first becomes ready
+  //   bursts    : int[] — alternating [cpu1, io1, cpu2, io2, ...]
+  //   phase     : int  — current index into bursts[]
+  //   remaining : int  — ticks left in the current burst phase
+  //   status    : 'not_arrived'|'ready'|'running'|'io'|'io_wait'|'done'
+  //                 io      = actively using the shared IO device
+  //                 io_wait = blocked, waiting for the IO device to become free
+  //   rrTick    : int  — ticks consumed in the current RR quantum slot
+  // }
+  const ps = {};
+  for (const { name, arrival, bursts } of procs) {
+    let b = [...bursts];
+    while (b.length && !b[b.length - 1]) b.pop();
+    ps[name] = { arrival, bursts: b, phase: 0, remaining: 0, status: 'not_arrived', rrTick: 0 };
+  }
+
+  // Single FIFO ready queue — processes join in arrival order.
+  // When multiple processes become ready at the same tick, they are
+  // appended in tie-breaking priority: IO-return → new-arrival → RR-preempted.
+  const readyQueue = [];
+
+  // Shared IO device — single active process + FIFO waiting queue
+  // ioActive : { name, remaining } | null — the process currently using IO
+  // ioQueue  : [{ name, remaining }]      — processes blocked waiting for IO (FIFO)
+  let   ioActive = null;
+  const ioQueue  = [];
+
+  // Per-process IO active instants: name → { t: true }
+  const ioActiveMap   = {};
+  // Names of IO processes that began IO this tick (skip decrement on tick they start)
+  const ioJustStarted = new Set();
+
+  let cpuProc     = null;
+  let preemptNext = false;
+
+  const cpuAt  = {};  // t → name|null
+  const qAt    = {};  // t → [names] (CPU ready queue)
+  const endAt  = {};  // "name:t" → type
+  const arrAt  = {};  // "name:t" → true
+
+  const names = procs.map(p => p.name);
+
+  function allDone()  { return names.every(n => ps[n].status === 'done'); }
+  function anyIO()    { return ioActive !== null || ioQueue.length > 0; }
+
+  for (let t = 0; t < 500 && (!allDone() || cpuProc || anyIO()); t++) {
+
+    // Per-tick buffers — used only to apply same-tick tie-breaking before
+    // appending to readyQueue.  They are flushed into readyQueue before step 4.
+    const ioThisTick      = [];  // returned from IO this tick
+    const newThisTick     = [];  // first arrival this tick
+    let   preemptThisTick = null; // RR quantum-expired this tick (goes last)
+
+    // 1. RR preemption flagged at end of previous instant
+    if (preemptNext && cpuProc) {
+      ps[cpuProc].status = 'ready';
+      ps[cpuProc].rrTick = 0;
+      preemptThisTick = cpuProc;
+      cpuProc = null;
+    }
+    preemptNext = false;
+
+    // 2. IO completion — ioActive.remaining reached 0 after last tick's decrement
+    if (ioActive && ioActive.remaining === 0) {
+      const name = ioActive.name;
+      const p    = ps[name];
+      const np   = p.phase + 1;
+      if (np < p.bursts.length && p.bursts[np] > 0) {
+        p.phase     = np;
+        p.remaining = p.bursts[np];
+        p.rrTick    = 0;
+        p.status    = 'ready';
+        ioThisTick.push(name);
+      } else {
+        p.status = 'done';
+      }
+      // Hand the IO device to the next waiting process (if any)
+      if (ioQueue.length > 0) {
+        ioActive = ioQueue.shift();
+        ps[ioActive.name].status = 'io';
+        ioJustStarted.add(ioActive.name);
+      } else {
+        ioActive = null;
+      }
+    }
+
+    // 3. New arrivals
+    for (const n of names) {
+      const p = ps[n];
+      if (p.status === 'not_arrived' && p.arrival === t) {
+        p.phase = 0;
+        if (!p.bursts.length || !p.bursts[0]) { p.status = 'done'; continue; }
+        p.remaining = p.bursts[0];
+        p.rrTick    = 0;
+        p.status    = 'ready';
+        newThisTick.push(n);
+        arrAt[`${n}:${t}`] = true;
+      }
+    }
+
+    // Flush per-tick buffers into readyQueue with tie-breaking order:
+    // IO-return first, then new arrivals, then RR-preempted (goes to back)
+    for (const n of ioThisTick)  readyQueue.push(n);
+    for (const n of newThisTick) readyQueue.push(n);
+    if (preemptThisTick !== null) readyQueue.push(preemptThisTick);
+
+    // Snapshot the ready queue before CPU scheduling so that processes
+    // returning from IO appear in the queue at the instant they become ready.
+    qAt[t] = readyQueue.slice();
+
+    // 4. Schedule CPU if idle
+    if (!cpuProc && readyQueue.length > 0) {
+      const next = readyQueue.shift();
+      cpuProc = next; ps[next].status = 'running'; ps[next].rrTick = 0;
+    }
+
+    // 5. Record state
+    cpuAt[t] = cpuProc || null;
+    if (ioActive) {
+      if (!ioActiveMap[ioActive.name]) ioActiveMap[ioActive.name] = {};
+      ioActiveMap[ioActive.name][t] = true;
+    }
+
+    // 6. Execute CPU
+    if (cpuProc) {
+      const p = ps[cpuProc];
+      p.remaining--;
+      if (algo === 'rr') p.rrTick++;
+
+      if (p.remaining <= 0) {
+        // CPU burst complete — go to IO or finish
+        const np = p.phase + 1;
+        if (np < p.bursts.length && p.bursts[np] > 0) {
+          endAt[`${cpuProc}:${t}`] = 'interrupt';
+          p.phase = np;
+          if (ioActive === null) {
+            // IO device is free — use it immediately
+            p.status = 'io';
+            ioActive = { name: cpuProc, remaining: p.bursts[np] };
+            ioJustStarted.add(cpuProc);
+          } else {
+            // IO device is busy — wait in the FIFO IO queue
+            p.status = 'io_wait';
+            ioQueue.push({ name: cpuProc, remaining: p.bursts[np] });
+          }
+        } else {
+          endAt[`${cpuProc}:${t}`] = 'end';
+          p.status = 'done';
+        }
+        cpuProc = null;
+      } else if (algo === 'rr' && p.rrTick >= quantum) {
+        // Quantum expired — preempt at start of next instant
+        endAt[`${cpuProc}:${t}`] = 'syscall';
+        preemptNext = true;
+      }
+    }
+
+    // 7. Decrement IO device (skip the process that just started IO this tick)
+    if (ioActive && !ioJustStarted.has(ioActive.name)) {
+      ioActive.remaining--;
+    }
+    ioJustStarted.clear();
+  }
+
+  // Determine total cycle count
+  let maxT = 0;
+  for (const t of Object.keys(cpuAt).map(Number)) if (t > maxT) maxT = t;
+  for (const map of Object.values(ioActiveMap))
+    for (const t of Object.keys(map).map(Number)) if (t > maxT) maxT = t;
+
+  return { cpuAt, ioActiveMap, qAt, endAt, arrAt, cycles: maxT + 1 };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Solution table renderer
+// ═══════════════════════════════════════════════════════════════════
+function buildSolutionHTML(result, procs) {
+  const { cpuAt, ioActiveMap, qAt, endAt, arrAt, cycles } = result;
+  const names = procs.map(p => p.name);
+
+  function seg(active, prev, next) {
+    if (!active) return '';
+    if (!prev && !next) return 'seg-solo';
+    if (!prev)          return 'seg-start';
+    if (!next)          return 'seg-end';
+    return 'seg-middle';
+  }
+
+  let h = '<tbody>';
+
+  // ── Ruler row ────────────────────────────────────────────────────
+  h += '<tr class="ruler-row"><td class="col-name" style="font-size:.72rem;font-weight:700;color:#6c757d">t</td>';
+  for (let t = 0; t < cycles; t++) {
+    h += `<td><span class="instant-num">${t}</span>`;
+    if (t === cycles - 1) h += `<span class="instant-num-last">${cycles}</span>`;
+    h += '</td>';
+  }
+  h += '</tr>';
+
+  // ── Per-process rows (CPU + IO on same row) ───────────────────────
+  for (const name of names) {
+    const color = procColor(name);
+    h += `<tr><td class="col-name" style="color:${color}">${name}</td>`;
+
+    for (let t = 0; t < cycles; t++) {
+      const isCPU = cpuAt[t] === name;
+      const isIO  = !!(ioActiveMap[name]?.[t]);
+      const active = isCPU || isIO;
+
+      const cpuSeg = seg(isCPU, cpuAt[t-1] === name, cpuAt[t+1] === name);
+      const ioSeg  = seg(isIO,  !!(ioActiveMap[name]?.[t-1]), !!(ioActiveMap[name]?.[t+1]));
+
+      const endType = endAt[`${name}:${t}`];
+      const hasEnd  = isCPU && endType && endType !== 'none';
+      const hasArr  = !!arrAt[`${name}:${t}`];
+
+      h += '<td class="cell">';
+      if (isCPU) {
+        h += `<div class="burst-bg ${cpuSeg}" style="background:${color}"></div>`;
+      } else if (isIO) {
+        h += `<div class="burst-bg ${ioSeg}" style="background:#198754"></div>`;
+        h += `<span class="io-proc-label" style="color:#198754">IO</span>`;
+      }
+      if (hasArr) {
+        h += `<span class="arrival-mark"><i class="bi bi-plus-lg" style="color:#198754;font-size:21px;font-weight:900"></i></span>`;
+      }
+      if (hasEnd) {
+        h += `<span class="end-mark">${END_ICON[endType]}</span>`;
+      }
+      h += '</td>';
+    }
+    h += '</tr>';
+  }
+
+  // ── Ready queue divider ──────────────────────────────────────────
+  h += '<tr class="q-divider"><td class="col-name" style="font-size:.7rem"><div class="fw-bold"><i class="bi bi-list-ul"></i> Cola listos</div></td>';
+  for (let t = 0; t < cycles; t++) h += '<td></td>';
+  h += '</tr>';
+
+  // ── Ready queue row ──────────────────────────────────────────────
+  h += '<tr><td class="col-name" style="font-size:.72rem;font-weight:600;padding:4px 6px">Ready</td>';
+  for (let t = 0; t < cycles; t++) {
+    const queue = qAt[t] || [];
+    h += '<td class="q-slot">';
+    for (const n of queue) {
+      h += `<span class="proc-chip" style="background:${procColor(n)}">${n}</span>`;
+    }
+    h += '</td>';
+  }
+  h += '</tr>';
+
+  h += '</tbody>';
+  return h;
+}
 </script>
 </body>
 </html>
