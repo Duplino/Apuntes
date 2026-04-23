@@ -34,6 +34,7 @@ doble x = 2 * x
     - [Ejemplo](#ejemplo-1)
     - [\_ (Guión bajo)](#_-guión-bajo)
   - [data](#data)
+    - ["Enum"](#enum)
     - [Record Syntax](#record-syntax)
 
 
@@ -224,6 +225,13 @@ bilbo = UnJovit {
 
 bilbo2 = UnJovit "Bilbo" 125 20 True
 ```
+### "Enum"
+```haskell
+data Color = Rojo | Verde | Azul deriving Show 
+colorFavorito :: Color
+colorFavorito = Verde
+```
+Permite definir un tipo de dato con un conjunto finito de valores posibles. Es útil para representar categorías o estados específicos.
 
 > [!CAUTION]
 > En dos `datas` distintos no se puede usar el mismo nombre de atributo. 
