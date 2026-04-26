@@ -273,8 +273,8 @@ $$
 
 Donde:
 
-- $w$ = tiempo de espera  
-- $s$ = tiempo de servicio (ráfaga)
+- $w$ = tiempo de espera (desde la ultima ejecucion)
+- $s$ = tiempo de servicio (ráfaga siguiente)
 
 Se elige el proceso con ****mayor $R$****.
 
