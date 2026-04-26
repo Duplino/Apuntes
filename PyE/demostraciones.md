@@ -11,3 +11,8 @@ Dado que $E[X]$ es una constante, $E[(E[X])^2] = (E[X])^2$. Por lo tanto, la exp
 $$Var(X) = E[X^2] - 2(E[X])^2 + (E[X])^2$$
 Finalmente, obtenemos:
 $$Var(X) = E[X^2] - (E[X])^2$$
+
+
+
+
+### Teorema de Esperanza de Variab
