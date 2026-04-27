@@ -88,3 +88,8 @@ $$ V(X+Y) = V(X) + V(Y) $$
 Tambien
 $$ Cov(aX, bY) = abCov(X,Y) $$
 $$ Cov(X+Y, Z) = Cov(X,Z) + Cov(Y,Z) $$
+
+
+## Percentiles
+$$ F(X_p) = p = P(X \leq x_p) $$
+$X_{0,5}$ es la mediana de la distribución, ya que $P(X \leq X_{0,5}) = 0,5$.
