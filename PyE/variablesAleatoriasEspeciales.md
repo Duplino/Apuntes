@@ -32,6 +32,14 @@
     - [Esperanza](#esperanza-3)
     - [Esperanza del cuadrado](#esperanza-del-cuadrado-2)
     - [Varianza](#varianza-3)
+  - [Variable Aleatoria Exponencial](#variable-aleatoria-exponencial)
+    - [Funcion densidad](#funcion-densidad)
+    - [Funcion de distribucion acumulada](#funcion-de-distribucion-acumulada)
+    - [Esperanza](#esperanza-4)
+    - [Varianza](#varianza-4)
+    - [Pérdida de memoria](#pérdida-de-memoria)
+  - [Variable Aleatoria Normal](#variable-aleatoria-normal)
+    - [Estandarizar una variable aleatoria normal](#estandarizar-una-variable-aleatoria-normal)
 
 
 
@@ -45,7 +53,7 @@ Es dicotómica con un éxito (1) y un fracaso (0).
 
 donde $p$ es la probabilidad de éxito y $q = 1-p$ es la probabilidad de fracaso.
 
-$$ X_i \sim Ber(p)$$
+$$ X_i  \sim  Ber(p)$$
 
 ### Propiedades
 
@@ -83,7 +91,7 @@ Arrjoamos un dado 3 veces.
 
 $X$ = número de veces que sale 4.
 
-$$ X \sim B(n = 3, p = \frac{1}{6})$$
+$$ X  \sim  B(n = 3, p = \frac{1}{6})$$
 
 | X | P(X) |
 |---|------|
@@ -104,7 +112,7 @@ Donde $n$ es el numero de ensayos y $x$ es el numero de exitos.
 
 ### Teorema de Esperanza de Variable Aleatoria Binomial
 #### Hipotesis
-$$ X \sim B_i(n,p) $$
+$$ X  \sim  B_i(n,p) $$
 $$ X = \sum_{i=1}^{n} X_i $$
 #### Tesis
 $$ E(X) = np $$
@@ -154,7 +162,7 @@ $$ P(X = k) = \binom{n}{k} p^k (1-p)^{n-k} $$
 
 
 ## Variable hipergeométrica
-$$ X \sim HG(n, N, M) $$
+$$ X  \sim  HG(n, N, M) $$
 $$ P(X = x) = \frac{\binom{M}{x} \binom{N-M}{n-x}}{\binom{N}{n}} $$
 
 
@@ -237,7 +245,7 @@ $$ Var(X) = E(X^2) - (E(X))^2 = \mu + \mu^2 - \mu^2 = \mu $$
 
 
 ## Variable Aleatoria Uniforme Continua
-$$ X \sim U[a,b] $$
+$$ X  \sim  U[a,b] $$
 
 $$ f(x) = \begin{cases} \frac{1}{b-a} & \text{si } a \leq x \leq b \\ 0 & \text{en otro caso} \end{cases} $$
 ### Esperanza
@@ -252,3 +260,102 @@ $$= \frac{1}{b-a} \left[ \frac{x^3}{3} \right]_{a}^{b} = \frac{1}{b-a} \cdot \fr
 
 ### Varianza
 $$ Var(X) = E(X^2) - (E(X))^2 = \frac{b^2 + ab + a^2}{3} - \left(\frac{b+a}{2}\right)^2 = \frac{(b-a)^2}{12} $$
+
+
+## Variable Aleatoria Exponencial
+
+$X:$ cantidad de continua recorrida hasta la primerra ocurrencia Poisson o entre ocurrencias consecutivas.
+
+$$X \sim Exp(\lambda)$$
+donde $\lambda$ es la intensidad de Poisson.
+
+### Funcion densidad
+
+$$ 
+f(x) = \begin{cases} \lambda e^{-\lambda x} & \text{si } x \geq 0 \\ 0 & \text{en otro caso} \end{cases} $$
+
+
+### Funcion de distribucion acumulada
+$$ F(x) = \begin{cases} 1 - e^{-\lambda x} & \text{si } x \geq 0 \\ 0 & \text{en otro caso} \end{cases} $$
+No llega a uno sino que es asintotica en $y=1$
+
+### Esperanza
+$$ E(X) = \frac{1}{\lambda} $$
+
+### Varianza
+$$ Var(X) = \frac{1}{\lambda^2} $$
+
+> [!NOTE] Relacion entre Poisson y Exponencial
+> Se pueden deducir las formulas. 
+> 
+$$
+X \sim Exp(\lambda) \quad Y \sim Po(\mu=\lambda x)
+$$ 
+
+Entonces:
+
+$$P(X > x) = P(Y = 0)$$
+$$ P(X > x) = e^{-\lambda x} $$
+
+
+Y ademas 
+$$ P(X\leq x) = 1 - e^{-\lambda x} $$
+Entonces
+$$
+f(x) = \begin{cases} \lambda e^{-\lambda x} & \text{si } x \geq 0 \\ 0 & \text{en otro caso} \end{cases} $$
+
+### Pérdida de memoria
+Hip.)
+$$ X  \sim  Exp(\lambda) \qquad  a,b\in \mathbb{R}^+ $$
+Tesis)
+$$ P(X > a+b | X > a) = P(X > b) $$
+
+> [!TIP] Ejemplo
+> Por ejemplo, si X es "tiempo de espera en un banco antes de ser atendido", entonces la probabilidad de que el cliente espere más de 10 minutos dado que ya esperó 20 minutos es igual a la probabilidad de que el cliente espere más de 10 minutos sin importar cuánto tiempo haya esperado.
+
+Dem.)
+$$ P(X > a+b | X > a) = \frac{P(X > a+b \cap X > a)}{P(X > a)} $$
+Interseccion entre $X > a+b$ y $X > a$ es $X > a+b$, entonces:
+$$ P(X > a+b | X > a) = \frac{P(X > a+b)}{P(X > a)} $$
+Por la pripiedad de $P(X > x)$ de la variable aleatoria exponencial, entonces:
+$$ P(X > a+b | X > a) = \frac{e^{-\lambda (a+b)}}{e^{-\lambda a}} = e^{-\lambda b} $$
+
+Es decir que 
+$$ P(X > a+b | X > a) = P(X > b) $$
+
+
+## Variable Aleatoria Normal
+$$ X \sim  N(\mu, \sigma^2) $$
+Donde $\mu$ es la esperanza y $\sigma^2$ es la varianza.
+
+Modeliza fenomenos como la estautra de una persona, peso, agua caida por la lluvia.
+
+$$
+f(x) = \frac{1}{\sigma \sqrt{2\pi}} e^{-\frac{1}{2} \left(\frac{x-\mu}{\sigma}\right)^2} \qquad -\infty < x < \infty
+$$
+
+$$ 
+V(X) = \sigma^2
+$$
+$$
+E(X) = \mu
+$$
+
+Puntos de inflexion en $x = \mu - \sigma$ y $x = \mu + \sigma$.
+Maxima en $x = \mu$.
+
+Su distribucion es como la *Campana de Gauss*, es simetrica respecto a la media y tiene colas asintoticas.
+
+$$ P(\mu - \sigma < X < \mu + \sigma) = 0.68 $$
+$$ P(\mu - 2\sigma < X < \mu + 2\sigma) = 0.95 $$
+$$ P(\mu - 3\sigma < X < \mu + 3\sigma) = 0.99 $$
+
+> [!NOTE]
+> Esto quiere decir que la probabilidad de que x este a una distancia menor a 1 desviacion estandar de la media es del 68%, a una distancia menor a 2 desviaciones estandar de la media es del 95% y a una distancia menor a 3 desviaciones estandar de la media es del 99%.
+
+### Estandarizar una variable aleatoria normal
+$$ Z = \frac{X - \mu}{\sigma} $$
+$$ Z  \sim  N(0,1) $$
+
+
+                         
