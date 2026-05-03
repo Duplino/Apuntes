@@ -1,5 +1,23 @@
 ## Probabilidad
 
+- [Probabilidad](#probabilidad)
+- [Variables Aleatorias](#variables-aleatorias)
+  - [Variable Aleatoria Discreta](#variable-aleatoria-discreta)
+    - [Esperanza](#esperanza)
+      - [Propiedades de la Esperanza](#propiedades-de-la-esperanza)
+    - [Varianza](#varianza)
+      - [Propiedades de la Varianza](#propiedades-de-la-varianza)
+    - [Desviación Estándar](#desviación-estándar)
+  - [Variable Aleatoria Continua](#variable-aleatoria-continua)
+    - [Esperanza](#esperanza-1)
+    - [Varianza](#varianza-1)
+    - [Desviación Estándar](#desviación-estándar-1)
+- [Distribucion conunta de probabilidad](#distribucion-conunta-de-probabilidad)
+  - [Covarianza](#covarianza)
+  - [Coeficiente de correlación lineal](#coeficiente-de-correlación-lineal)
+  - [Propiedades de la varianza](#propiedades-de-la-varianza-1)
+
+
 ## Variables Aleatorias
 
 Una variable aleatoria es una función que asigna un valor numérico a cada resultado de un experimento aleatorio. Las variables aleatorias pueden ser discretas o continuas, dependiendo de si toman un número finito o infinito de valores.
