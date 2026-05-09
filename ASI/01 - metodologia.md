@@ -92,3 +92,8 @@ Ciclos de Vida
 
 ### Para documentar
 ### Para recoletar información
+
+
+
+
+Usamos herramientas graficas para mitigar la ambiguedad y la inconsistencia del lenguaje.

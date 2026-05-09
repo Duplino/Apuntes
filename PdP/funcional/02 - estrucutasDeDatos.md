@@ -34,7 +34,7 @@ doble x = 2 * x
     - [Ejemplo](#ejemplo-1)
     - [\_ (Guión bajo)](#_-guión-bajo)
   - [data](#data)
-    - ["Enum"](#enum)
+    - [Multiples Constructores - "Enum"](#multiples-constructores---enum)
     - [Record Syntax](#record-syntax)
 
 
@@ -225,7 +225,7 @@ bilbo = UnJovit {
 
 bilbo2 = UnJovit "Bilbo" 125 20 True
 ```
-### "Enum"
+### Multiples Constructores - "Enum"
 ```haskell
 data Color = Rojo | Verde | Azul deriving Show 
 colorFavorito :: Color
@@ -238,4 +238,12 @@ Permite definir un tipo de dato con un conjunto finito de valores posibles. Es �
 
 ### Record Syntax
 La sintaxis de registro es una forma de definir un nuevo tipo de dato con campos nombrados. Esto permite acceder a los campos por su nombre en lugar de por su posición.
+
+```
+variable :: Tipo
+variable = Constructor {
+    campo1 = valor1,
+    campo2 = valor2,
+    ...
+}
 
