@@ -32,6 +32,7 @@
     - [Esperanza](#esperanza-3)
     - [Esperanza del cuadrado](#esperanza-del-cuadrado-2)
     - [Varianza](#varianza-3)
+<<<<<<< HEAD
   - [Variable Aleatoria Exponencial](#variable-aleatoria-exponencial)
     - [Funcion densidad](#funcion-densidad)
     - [Funcion de distribucion acumulada](#funcion-de-distribucion-acumulada)
@@ -40,6 +41,9 @@
     - [Pérdida de memoria](#pérdida-de-memoria)
   - [Variable Aleatoria Normal](#variable-aleatoria-normal)
     - [Estandarizar una variable aleatoria normal](#estandarizar-una-variable-aleatoria-normal)
+=======
+  - [Cuadro comparativo de variables aleatorias especiales](#cuadro-comparativo-de-variables-aleatorias-especiales)
+>>>>>>> 106e1ca2d609987f46a3b3da48931992e1ff9bdf
 
 
 
@@ -262,6 +266,7 @@ $$= \frac{1}{b-a} \left[ \frac{x^3}{3} \right]_{a}^{b} = \frac{1}{b-a} \cdot \fr
 $$ Var(X) = E(X^2) - (E(X))^2 = \frac{b^2 + ab + a^2}{3} - \left(\frac{b+a}{2}\right)^2 = \frac{(b-a)^2}{12} $$
 
 
+<<<<<<< HEAD
 ## Variable Aleatoria Exponencial
 
 $X:$ cantidad de continua recorrida hasta la primerra ocurrencia Poisson o entre ocurrencias consecutivas.
@@ -359,3 +364,14 @@ $$ Z  \sim  N(0,1) $$
 
 
                          
+=======
+
+## Cuadro comparativo de variables aleatorias especiales
+| Variable Aleatoria | Hipotesios | Definicion | Ejemplo |
+|--------------------|-----------|----------| ---- |  
+| Bernoulli | Proceso de Bernoulli | $X \sim Ber(p)$ | $X$ = 1 si sale 4, 0 si no sale 4 al arrojar un dado |
+| Binomial | Proceso de Bernoulli | $X \sim B(n, p)$ | $X$ = numero de veces que sale 4 al arrojar un dado 3 veces |
+| Hipergeometrica | No se reemplaza el elemento extraido | $X \sim HG(n, N, M)$ | $X$ = numero de bolillas rojas al extraer 2 bolillas de una urna con 4 bolillas rojas y 3 bolillas negras |
+| Poisson | Ocurrencias se cuentan en un espacio continuo | $X \sim Poisson(\mu)$ | $X$ = numero de fallas en 1000 metros de cable |
+| Uniforme Continua | $X \sim U[a,b]$ | $f(x) = \begin{cases} \frac{1}{b-a} & \text{si } a \leq x \leq b \\ 0 & \text{en otro caso} \end{cases}$ | $X$ = tiempo que tarda un cliente en ser atendido en una tienda, donde el tiempo mínimo es de 2 minutos y el tiempo máximo es de 10 minutos |
+>>>>>>> 106e1ca2d609987f46a3b3da48931992e1ff9bdf
