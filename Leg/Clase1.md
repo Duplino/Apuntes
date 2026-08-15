@@ -83,3 +83,6 @@ El accionar de las personas, la cultura, la religión, la economía, la polític
 > [!NOTE] Partes
 > - El **actor** es quien inicia el juicio. 
 > - El **demandado** es quien se defiende.
+
+> [!TIP] Cosa juzgada
+> Cuando un caso fue resuelto en primera instancia y la camara ratifico el fallo, no se puede volver a juzgar el caso. Esto se llama cosa juzgada.
