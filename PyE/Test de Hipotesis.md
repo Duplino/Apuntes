@@ -150,3 +150,50 @@ El p-valor es el menor nivel de significación $\alpha$ para el cual se rechaza 
 
 Si el p-valor es menor que el nivel de significación elegido, se rechaza $H_0$.
 
+## Test de hipotesis para la diferencia de medias $\mu_1 - \mu_2$ poblacional. Poblacion normal independientes. $\sigma$ conocido
+
+$H_0: \mu_1 - \mu_2 = \delta_0$
+
+$$ H_1: \mu_1 - \mu_2 \begin{cases}
+> \delta_0 & \text{(Caso 1)} \\
+< \delta_0 & \text{(Caso 2)} \\
+\neq \delta_0 & \text{(Caso 3)} \\
+\end{cases} $$
+
+Se rechaza $H_0$ si:
+- Para el caso 2, se rechaza $H_0$ si $$ \frac{(\bar{X_1} - \bar{X_2}) - \delta_0}{\sqrt{\frac{\sigma_1^2}{n_1} + \frac{\sigma_2^2}{n_2}}} < -Z_{1 - \alpha} $$
+- Para el caso 1, se rechaza $H_0$ si $$ \frac{(\bar{X_1} - \bar{X_2}) - \delta_0}{\sqrt{\frac{\sigma_1^2}{n_1} + \frac{\sigma_2^2}{n_2}}} > Z_{1 - \alpha} $$
+- Para el caso 3, se rechaza $H_0$ si $$ \frac{(\bar{X_1} - \bar{X_2}) - \delta_0}{\sqrt{\frac{\sigma_1^2}{n_1} + \frac{\sigma_2^2}{n_2}}} < -Z_{1 - \alpha/2} $$ o $$ \frac{(\bar{X_1} - \bar{X_2}) - \delta_0}{\sqrt{\frac{\sigma_1^2}{n_1} + \frac{\sigma_2^2}{n_2}}} > Z_{1 - \alpha/2} $$
+
+
+$$ Z_{obs} = \frac{(\bar{X_1} - \bar{X_2}) - \delta_0}{\sqrt{\frac{\sigma_1^2}{n_1} + \frac{\sigma_2^2}{n_2}}} $$
+
+### Como sacar el Z critico
+- Para el caso 1, se busca el valor de Z tal que $P(Z > Z_{1 - \alpha}) = \alpha$
+
+Por ejemplo, si $\alpha = 0.05$, se busca el valor de Z tal que $P(Z > Z_{0.95}) = 0.05$. El valor de $Z_{0.95}$ es 1.645.
+
+en el probabilit calculator, Para mu y para la varianza se pone 0, y para el nivel de significación se pone el valor de $\alpha$.
+
+## Test de hipotesis para la diferencia de medias $\mu_1 - \mu_2$ poblacional. Poblacion normal independientes. $\sigma$ desconocido supuestas iguales
+
+$H_0: \mu_1 - \mu_2 = \delta_0$
+
+$$ H_1: \mu_1 - \mu_2 \begin{cases}
+> \delta_0 & \text{(Caso 1)} \\
+< \delta_0 & \text{(Caso 2)} \\
+\neq \delta_0 & \text{(Caso 3)} \\
+\end{cases} $$
+
+$$ T_{obs} = \frac{(\bar{X_1} - \bar{X_2}) - \delta_0}{\sqrt{S_p^2 \left( \frac{1}{n_1} + \frac{1}{n_2} \right)}} $$
+
+Entonces para el caso 2:
+- Se rechaza $H_0$ si $$ \frac{(\bar{X_1} - \bar{X_2}) - \delta_0}{\sqrt{S_p^2 \left( \frac{1}{n_1} + \frac{1}{n_2} \right)}} < -t_{n_1 + n_2 - 2, 1 - \alpha} $$
+- Para el caso 1, se rechaza $H_0$ si $$ \frac{(\bar{X_1} - \bar{X_2}) - \delta_0}{\sqrt{S_p^2 \left( \frac{1}{n_1} + \frac{1}{n_2} \right)}} > t_{n_1 + n_2 - 2, 1 - \alpha} $$
+- Para el caso 3, se rechaza $H_0$ si $$ \frac{(\bar{X_1} - \bar{X_2}) - \delta_0}{\sqrt{S_p^2 \left( \frac{1}{n_1} + \frac{1}{n_2} \right)}} < -t_{n_1 + n_2 - 2, 1 - \alpha/2} $$ o $$ \frac{(\bar{X_1} - \bar{X_2}) - \delta_0}{\sqrt{S_p^2 \left( \frac{1}{n_1} + \frac{1}{n_2} \right)}} > t_{n_1 + n_2 - 2, 1 - \alpha/2} $$
+
+
+Donde $S_p^2$ es la varianza muestral combinada, calculada como:
+$$ S_p^2 = \frac{(n_1 - 1)S_1^2 + (n_2 - 1)S_2^2}{n_1 + n_2 - 2} $$
+
+(En los intervalos de confianza se usa la varianza muestral combinada, pero en el test de hipotesis se puede usar la varianza muestral de cada muestra por separado, sin combinarlas)
