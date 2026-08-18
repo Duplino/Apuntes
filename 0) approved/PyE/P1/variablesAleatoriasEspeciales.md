@@ -32,18 +32,7 @@
     - [Esperanza](#esperanza-3)
     - [Esperanza del cuadrado](#esperanza-del-cuadrado-2)
     - [Varianza](#varianza-3)
-<<<<<<< HEAD
-  - [Variable Aleatoria Exponencial](#variable-aleatoria-exponencial)
-    - [Funcion densidad](#funcion-densidad)
-    - [Funcion de distribucion acumulada](#funcion-de-distribucion-acumulada)
-    - [Esperanza](#esperanza-4)
-    - [Varianza](#varianza-4)
-    - [Pérdida de memoria](#pérdida-de-memoria)
-  - [Variable Aleatoria Normal](#variable-aleatoria-normal)
-    - [Estandarizar una variable aleatoria normal](#estandarizar-una-variable-aleatoria-normal)
-=======
   - [Cuadro comparativo de variables aleatorias especiales](#cuadro-comparativo-de-variables-aleatorias-especiales)
->>>>>>> 106e1ca2d609987f46a3b3da48931992e1ff9bdf
 
 
 
