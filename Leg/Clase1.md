@@ -86,3 +86,13 @@ El accionar de las personas, la cultura, la religión, la economía, la polític
 
 > [!TIP] Cosa juzgada
 > Cuando un caso fue resuelto en primera instancia y la camara ratifico el fallo, no se puede volver a juzgar el caso. Esto se llama cosa juzgada.
+
+## Pirámide de Kelsen
+Orden Jerárquico de las leyes
+![Pirámide](image.png)
+
+Artículo 43 de la CN: Amparo
+
+> [!NOTE] Faltan leyes provinciales
+
+Sentencias judiciales y contratos: Son "ley para las partes", pues no involucra a todo el mundo.
