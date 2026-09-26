@@ -48,4 +48,4 @@ Reglas redundantes: distintas reglas pero misma acción
 46) Peaje - 2013
 ![alt text](image-7.png)
 
-Se puede separar el adicional en otro caso. Da igual
+Se puede separar el adicional en otro caso. Da igual.
